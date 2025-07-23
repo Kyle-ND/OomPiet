@@ -1055,14 +1055,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         const selectedPlan = localStorage.getItem('selectedPlan_oompiet');
                         if (isPremium) {
                             apiMode = 'premium';
-                            modal.style.display = 'none';
+                            modal.style.display = 'flex';
                             chatMain.style.display = 'block';
                         } else if (usageCount < 10) {
                             modal.style.display = 'flex';
                             chatMain.style.display = 'block';
                         } else {
                             if (selectedPlan === 'free') {
-                                modal.style.display = 'none';
+                                modal.style.display = 'flex';
                                 chatMain.style.display = 'block';
                                 apiMode = 'free';
                             } else {
@@ -1148,8 +1148,8 @@ const collectionName = "Water_docs";
 
 function callRagApi(query) {
     let endpoint;
-    if (usageCount < 9) {
-        endpoint = 'https://oompiet.space/hybrid_rag';
+    if (usageCount < 1000) {
+        endpoint = 'https://oompiet.space/rag';
     } else {
         endpoint = apiMode === 'premium'
             ? 'https://oompiet.space/rag'
