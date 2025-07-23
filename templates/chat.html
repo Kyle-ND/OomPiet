@@ -1,0 +1,1865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mentormate – Instant Expertise</title>
+    <link rel="icon" type="image/png" href="/static/logo1.PNG">
+    <style>
+  
+                            @import url('https://fonts.cdnfonts.com/css/pabasing');
+:root {
+    /* Primary Colors */
+    --primary-green: #3db54b;
+    --primary-green-80: #63c36e;
+    --primary-green-60: #89d191;
+    --primary-green-40: #aee0b4;
+    --primary-green-20: #d6efd8;
+    
+    /* Changed from blue to orange */
+    --primary-orange: #e67e22; /* Main orange color */
+    --primary-orange-80: #eb9950;
+    --primary-orange-60: #f0b47d;
+    --primary-orange-40: #f5cfab;
+    --primary-orange-20: #fae9d8;
+   
+    /* Secondary Colors */
+    --secondary-teal: #00abaf;
+    --secondary-teal-80: #33bcbf;
+    --secondary-teal-60: #66cdcf;
+    --secondary-teal-40: #99dedf;
+    --secondary-teal-20: #cceeef;
+    --secondary-dark-green: #0c734d;
+    --secondary-dark-green-80: #3c8f70;
+    --secondary-dark-green-60: #6bab93;
+    --secondary-dark-green-40: #9bc7b6;
+    --secondary-dark-green-20: #cae3d9;
+    
+    /* Changed from navy to darker orange */
+    --secondary-dark-orange: #d35400;
+    --secondary-dark-orange-80: #dc7633;
+    --secondary-dark-orange-60: #e59866;
+    --secondary-dark-orange-40: #edbb99;
+    --secondary-dark-orange-20: #f6ddcc;
+   
+    /* Neutrals */
+    --neutral-dark: #333333;
+    --neutral-medium: #666666;
+    --neutral-light: #999999;
+    --neutral-lighter: #cccccc;
+    --neutral-lightest: #f5f7fa;
+   
+    /* Utility Colors */
+    --white: #ffffff;
+    --black: #000000;
+    --success: var(--primary-green);
+    --info: var(--primary-orange); /* Changed from blue to orange */
+    --warning: #f0ad4e;
+    --danger: #d9534f;
+}
+
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: var(--neutral-lightest);
+    color: var(--neutral-dark);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+/* Add this CSS to your existing styles for the streaming cursor animation */
+
+.streaming-cursor {
+    animation: blink 1s infinite;
+    color: var(--primary-orange);
+    font-weight: bold;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+/* Optional: Add a typing indicator style */
+.typing-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-style: italic;
+    color: var(--neutral-medium);
+}
+
+.typing-indicator::before {
+    content: "✍️";
+    animation: pulse 1.5s infinite;
+}
+/* Navigation Bar */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.2rem 2rem;
+    background-color: var(--white);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.navbar-brand span {
+    font-size: 2.1rem;
+    font-weight: 600;
+    font-family: 'Pabasing', sans-serif;
+    color: var(--secondary-dark-orange); /* Changed from navy to dark orange */
+    display: flex;
+    align-items: center;
+
+    /* Changed to Poppins font (closest to Pabasic available) */
+}
+
+.navbar-brand img {
+    height: 64px !important;
+    margin-right: 10px;
+}
+
+.navbar-buttons {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.btn {
+    padding: 0.6rem 1.2rem;
+    border-radius: 5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+}
+
+.btn-primary {
+    background-color: var(--primary-orange); /* Changed from blue to orange */
+    color: var(--white);
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-orange-80); /* Changed from blue to orange */
+}
+
+.btn-secondary {
+    background-color: var(--primary-green);
+    color: var(--white);
+}
+
+.btn-secondary:hover {
+    background-color: var(--primary-green-80);
+}
+
+.btn img {
+    margin-right: 8px;
+    height: 18px;
+}
+
+/* Profile Dropdown */
+.profile-container {
+    position: relative;
+    display: none; /* Hidden by default, shown after login */
+}
+
+.profile-button {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    background: none;
+    border: none;
+}
+
+.profile-image {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--primary-orange); /* Changed from blue to orange */
+}
+
+.profile-dropdown {
+    position: absolute;
+    top: 50px;
+    right: 0;
+    background-color: var(--white);
+    border-radius: 5px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    min-width: 200px;
+    display: none;
+    z-index: 10;
+}
+
+.profile-dropdown.show {
+    display: block;
+}
+
+.profile-dropdown-item {
+    padding: 12px 15px;
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: var(--neutral-dark);
+    transition: background-color 0.2s;
+}
+
+.profile-dropdown-item:hover {
+    background-color: var(--neutral-lightest);
+}
+
+.profile-dropdown-item i {
+    margin-right: 10px;
+    font-size: 1.1rem;
+}
+
+.profile-info {
+    padding: 15px;
+    border-bottom: 1px solid var(--neutral-lighter);
+}
+
+.profile-info .profile-name {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 5px;
+}
+
+.profile-info .profile-email {
+    font-size: 0.9rem;
+    color: var(--neutral-medium);
+    word-break: break-all;
+}
+
+/* Main content area */
+.main-content {
+    flex: 1;
+    padding: 1.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+/* Chat container */
+.chat-container {
+    max-width: 1170px;
+    margin: 0 auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    position: relative;
+}
+
+.chat-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--neutral-lighter);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.chat-header-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--secondary-dark-orange); /* Changed from navy to dark orange */
+}
+
+.chat-header-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--neutral-medium);
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--success);
+}
+
+/* Character image styling */
+.character-container {
+    position: absolute;
+    right: 50px;
+    top: 20px;
+    z-index: 10;
+    width: 130px;
+    text-align: center;
+}
+#free-version-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: static;
+    width: auto;
+    margin: 0 1rem 0 0;
+    font-size: 1rem;
+    background: none;
+    box-shadow: none;
+    z-index: 20;
+    pointer-events: auto;
+}
+
+
+.character-image {
+    width: 100%;
+    border-radius: 50%;
+ 
+}
+.character-title {
+    margin-top: 0.5rem;
+    font-size: 1.3rem;
+    color: var(--neutral-medium);
+    background-color: var(--white);
+    font-family: 'Pabasing', sans-serif;
+    padding: 4px 8px;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.chat-messages {
+    flex: 1;
+    padding: 1.5rem;
+    padding-right: 50px; /* Add padding to avoid overlap with character image */
+    padding-top: 70px; /* Add top padding to provide space below character image */
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-height: 60vh;
+    max-height: 60vh;
+}
+
+.message {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    max-width: 80%;
+}
+
+.message-user {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+    margin-right: 0; /* Remove any right margin for user messages */
+}
+
+.message-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: var(--primary-orange-20); /* Changed from blue to orange */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: 600;
+    color: var(--primary-orange); /* Changed from blue to orange */
+    flex-shrink: 0;
+}
+
+.message-user .message-avatar {
+    background-color: #cccccc;
+    color: #000000;
+}
+
+.message-user .message-content {
+    background-color: #cccccc;
+    color: #333;
+}
+
+.message-content {
+    padding: 0.75rem 1.8rem;
+    border-radius: 18px;
+    background-color: var(--primary-orange-20); /* Changed from blue to orange */
+    color: var(--neutral-dark);
+    font-size: 0.95rem;
+    line-height: 1.5;
+
+    /* ✅ Fix text wrapping and overflow */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+
+    /* ✅ Ensure block elements (like <h1>, <ul>) stay inside */
+    display: block;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+
+.message-user .message-content {
+    background-color: #cccc;
+}
+
+.message-time {
+    font-size: 0.75rem;
+    color: var(--neutral-light);
+    margin-top: 0.25rem;
+    text-align: right;
+}
+
+.message-user .message-time {
+    text-align: left;
+}
+
+.chat-input-container {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--neutral-lighter);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.chat-input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--neutral-lighter);
+    border-radius: 24px;
+    font-size: 0.95rem;
+    resize: none;
+    min-height: 48px;
+    max-height: 120px;
+    overflow-y: auto;
+    outline: none;
+}
+
+.chat-input:focus {
+    border-color: var(--primary-orange); /* Changed from blue to orange */
+}
+
+.chat-send-btn {
+    background-color: #cccccc;
+    color: #fff;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    flex-shrink: 0;
+}
+
+.chat-send-btn:hover {
+    background-color: #b3b3b3;
+}
+
+.chat-send-btn:disabled {
+    background-color: var(--neutral-lighter);
+    cursor: not-allowed;
+}
+
+/* Loading spinner for whole page */
+.loading-spinner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid var(--neutral-lighter);
+    border-top: 5px solid var(--primary-orange); /* Changed from blue to orange */
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Chat loading indicator */
+.chat-loading {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.chat-loading-indicator {
+    display: flex;
+    gap: 0.3rem;
+}
+
+.chat-loading-dot {
+    width: 8px;
+    height: 8px;
+    background-color: var(--primary-orange); /* Changed from blue to orange */
+    border-radius: 50%;
+    animation: pulse 1.5s infinite ease-in-out;
+}
+
+.chat-loading-dot:nth-child(2) {
+    animation-delay: 0.3s;
+}
+
+.chat-loading-dot:nth-child(3) {
+    animation-delay: 0.6s;
+}
+
+@media (max-width: 768px) {
+    #free-version-banner {
+        font-size: 0.95rem;
+        margin: 0 0.5rem 0 0;
+    }
+    .character-image {
+        padding-top: 10px;
+    width: 100%;
+    border-radius: 50%;
+ 
+}
+.character-title {
+    margin-top: 0.5rem;
+    font-size: 1.3rem;
+    color: var(--neutral-medium);
+    background-color: var(--white);
+    font-family: 'Pabasing', sans-serif;
+    padding: 4px 8px;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(0.5); opacity: 0.5; }
+    50% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes fadeIn {
+    0% { opacity: 0; transform: translateY(-20px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+    .navbar {
+        padding: 1rem;
+    }
+    
+    .navbar-brand {
+        font-size: 1.4rem;
+    }
+    
+    .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+    }
+    
+    .main-content {
+        padding: 1rem;
+    }
+    
+    .message {
+        max-width: 90%;
+    }
+    
+    .character-container {
+        position: relative;
+        top: 0;
+        right: 0;
+        width: 80px;
+        margin: 0 auto 1rem;
+    }
+    
+    .chat-messages {
+        padding-right: 1.5rem; /* Reset padding on mobile */
+        padding-top: 1.5rem; /* Reset top padding on mobile */
+    }
+    
+    /* Plan selection modal responsive styles */
+    #api-mode-modal > div {
+        padding: 1.5rem;
+        width: 95%;
+        max-width: 100%;
+    }
+    
+    #api-mode-modal h2 {
+        font-size: 1.5rem;
+    }
+    
+    #api-mode-modal p {
+        font-size: 0.9rem;
+    }
+    
+    #free-plan-card, #premium-plan-card {
+        min-width: 100%;
+        margin-bottom: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .chat-header-status {
+        display: none;
+    }
+    
+    .message {
+        max-width: 95%;
+    }
+    
+    .character-container {
+        width: 60px;
+    }
+    
+    .chat-messages {
+        padding-right: 1.5rem; /* Reset padding on mobile */
+        padding-top: 1.5rem; /* Reset top padding on mobile */
+    }
+}
+
+/* Add feedback styles to the existing CSS */
+.message-feedback {
+    margin-top: 8px;
+    font-size: 0.9rem;
+    color: var(--neutral-medium);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.feedback-prompt {
+    font-style: italic;
+}
+
+.feedback-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.feedback-button {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    transition: transform 0.2s;
+    opacity: 0.6;
+}
+
+.feedback-button:hover {
+    transform: scale(1.1);
+    opacity: 1;
+}
+
+.feedback-button.selected {
+    opacity: 1;
+}
+
+.feedback-button.positive.selected {
+    color: var(--success);
+}
+
+.feedback-button.negative.selected {
+    color: var(--danger);
+}
+
+.feedback-submitted {
+    color: var(--success);
+    font-style: italic;
+    display: none;
+}
+
+.api-mode-btn.selected {
+    background: var(--primary-orange, #e67e22);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+}
+.api-mode-btn {
+    background: #fff;
+    color: var(--primary-orange, #e67e22);
+    border: 1px solid var(--primary-orange, #e67e22);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+.api-mode-btn:not(.selected):hover {
+    background: var(--primary-orange-20, #fae9d8);
+}
+#chat-main-content {
+  display: none;
+}
+    </style>
+</head>
+<body>
+    <!-- API Mode Modal (must be first in body, outside any hidden containers) -->
+    <div id="api-mode-modal" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);z-index:2000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(5px);">
+      <div style="background:#fff;padding:2.5rem;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);text-align:center;max-width:700px;width:95%;animation:fadeIn 0.5s ease-out;">
+        <p style="margin-bottom:2rem;color:var(--neutral-medium);font-size:1.5rem;">You are currently enjoying the Premium Plan</p>
+        
+     
+            <button id="modal-premium-btn" class="api-mode-btn" style="width:100%;padding:0.8rem;font-weight:600;font-size:1rem;border-radius:8px;background:var(--primary-orange);color:white;">Continue</button>
+          </div>
+        </div>
+      
+
+    
+    <!-- Only this is hidden initially -->
+    <div id="chat-main-content" style="display:none;">
+    <!-- Page loading spinner (visible on initial load) -->
+    <div class="loading-spinner" id="initial-loading-spinner" style="display:flex;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:3000;background:rgba(255,255,255,0.8);align-items:center;justify-content:center;">
+        <div class="spinner"></div>
+    </div>
+    
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+                <img src="/static/logo.png" alt="Logo" style="height: 64px; margin-right: 10px;">
+            </a>
+        </div>
+        
+        <div class="navbar-buttons">
+            <div id="not-logged-in-buttons">
+                <button class="btn btn-primary" id="login-button">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgiIGhlaWdodD0iMTgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj48cGF0aCBkPSJNMTcuNiA5LjJsLS4xLTEuOEg5djMuNGg0LjhDMTMuNiAxMiAxMyAxMyAxMiAxMy42djIuMmgzYTguOCA4LjggMCAwIDAgMi42LTYuNnoiIGZpbGw9IiM0Mjg1RjQiIGZpbGwtcnVsZT0ibm9uemVybyIvPjxwYXRoIGQ9Ik05IDE4YzIuNCAwIDQuNS0uOCA2LTIuMmwtMy0yLjJhNS40IDUuNCAwIDAgMS04LTIuOUgxVjEzYTkgOSAwIDAgMCA4IDV6IiBmaWxsPSIjMzRBODUzIiBmaWxsLXJ1bGU9Im5vbnplcm8iLz48cGF0aCBkPSJNNCAxMC43YTUuNCA1LjQgMCAwIDEgMC0zLjRWNUgxYTkgOSAwIDAgMCAwIDhsMy0yLjN6IiBmaWxsPSIjRkJCQzA1IiBmaWxsLXJ1bGU9Im5vbnplcm8iLz48cGF0aCBkPSJNOSAzLjZjMS4zIDAgMi41LjQgMy40IDEuM0wxNSAyLjNBOSA5IDAgMCAwIDEgNWwzIDIuNGE1LjQgNS40IDAgMCAxIDUtMy43eiIgZmlsbD0iI0VBNDMzNSIgZmlsbC1ydWxlPSJub256ZXJvIi8+PHBhdGggZD0iTTAgMGgxOHYxOEgweiIvPjwvZz48L3N2Zz4=" alt="Google">
+                    Login with Google
+                </button>
+            </div>
+            
+            <div class="profile-container" id="profile-container">
+                <button class="profile-button" id="profile-button">
+                    <img src="/static/default-profile.png" alt="Profile" class="profile-image" id="profile-image">
+                </button>
+                
+                <div class="profile-dropdown" id="profile-dropdown">
+                    <div class="profile-info">
+                        <div class="profile-name" id="profile-name">User Name</div>
+                        <div class="profile-email" id="profile-email">user@example.com</div>
+                    </div>
+                    <a href="#" class="profile-dropdown-item" id="unsubscribe-btn" style="display:none; color: #d9534f; font-weight: 600;">Unsubscribe</a>
+                    <a href="#" class="profile-dropdown-item" id="logout-button">
+                      Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="chat-container">
+           
+            <!-- Character Image -->
+            <div class="character-container">
+                
+                <img src="/static/character.PNG" alt="Geotechnical Engineering Assistant Character" class="character-image" id="character-image">
+                <div class="character-title">Oom Piet</div>
+            </div>
+            
+            <!-- Chat Messages -->
+            <div class="chat-messages" id="chat-messages">
+                <!-- Assistant Message -->
+                <div class="message">
+                    <div class="message-avatar">OP</div>
+                    <div>
+                        <div class="message-content">
+                            Hallo daar! Ek’s Piet, a seasoned geotechnical engineer with deep roots in tailings, geology, and soil mechanics. I’ve been shaping South Africa’s mining and infrastructure landscape since the days of the first gold rush. Whether it's monitoring tailings storage facilities, overseeing complex site investigations or stabilising a sinkhole-prone site, I bring a practical mindset and a steady hand earned through years on the ground. Ask away, and I’ll help you build with confidence—from the first soil sample to final installation.
+                        </div>
+                        <div class="message-time">12:00 PM</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Chat Input -->
+            <div class="chat-input-container">
+                <textarea class="chat-input" id="chat-input" placeholder="Type your message here..." rows="1"></textarea>
+                <button class="chat-send-btn" id="chat-send-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Profile dropdown functionality
+            const loginButton = document.getElementById('login-button');
+            const profileButton = document.getElementById('profile-button');
+            const profileDropdown = document.getElementById('profile-dropdown');
+            const logoutButton = document.getElementById('logout-button');
+            const profileContainer = document.getElementById('profile-container');
+            const notLoggedInButtons = document.getElementById('not-logged-in-buttons');
+            const profileImage = document.getElementById('profile-image');
+            const profileName = document.getElementById('profile-name');
+            const profileEmail = document.getElementById('profile-email');
+            const chatInput = document.getElementById('chat-input');
+            const chatSendBtn = document.getElementById('chat-send-btn');
+            const chatMessages = document.getElementById('chat-messages');
+            const loadingSpinner = document.querySelector('.loading-spinner');
+            // Add this to your JavaScript after the document is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Set the character image from the one you provided
+    const characterImage = document.getElementById('character-image');
+    if (characterImage) {
+        // Replace this URL with the actual URL where you'll host the image
+        // Or use a data URL for embedding directly
+        characterImage.src = "/static/geo-engineer-character.jpg";
+    }
+});
+            // API endpoint configuration
+            const RAG_API_ENDPOINT = "https://oompiet.space/rag";
+            
+            checkLoginStatus();
+            
+            // Event Listeners
+            if (loginButton) {
+                loginButton.addEventListener('click', function() {
+                    showPageLoading();
+                    window.location.href = '/login';
+                });
+            }
+            
+            if (profileButton) {
+                profileButton.addEventListener('click', function() {
+                    profileDropdown.classList.toggle('show');
+                });
+            }
+            
+            if (logoutButton) {
+                logoutButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    logout();
+                });
+            }
+
+            const unsubscribeBtn = document.getElementById('unsubscribe-btn');
+            if (unsubscribeBtn) {
+                unsubscribeBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (confirm('Are you sure you want to unsubscribe from recurring payments?')) {
+                        fetch('/unsubscribe', {method: 'POST'})
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.success) {
+                                    alert('You have unsubscribed from recurring payments.');
+                                    location.reload();
+                                } else {
+                                    alert('Failed to unsubscribe: ' + data.error);
+                                }
+                            });
+                    }
+                });
+            }
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (profileButton && !profileButton.contains(e.target) && 
+                    profileDropdown && !profileDropdown.contains(e.target)) {
+                    profileDropdown.classList.remove('show');
+                }
+            });
+            
+            // Functions
+            function checkLoginStatus() {
+                fetch('/check-login-status')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.loggedIn) {
+                            // User is logged in
+                            showLoggedInState();
+                            fetchUserProfile();
+                        } else {
+                            // User is not logged in
+                            showLoggedOutState();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking login status:', error);
+                        showLoggedOutState(); // Default to logged out on error
+                    });
+                    
+                // Hide loading spinner after checking login status
+                hidePageLoading();
+            }
+            
+            function fetchUserProfile() {
+                fetch('/api/user-profile')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch user profile');
+                        }
+                        return response.json();
+                    })
+                    .then(user => {
+                        updateProfileUI(user);
+                        showFreeVersionBanner(user);
+                        if (unsubscribeBtn) {
+                            if (user.payfast_subscription_id) {
+                                unsubscribeBtn.style.display = 'block';
+                            } else {
+                                unsubscribeBtn.style.display = 'none';
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching user profile:', error);
+                        // If we can't get the profile but user is logged in, show generic profile
+                        updateProfileUI({
+                            name: 'User',
+                            email: 'user@example.com',
+                            picture: '/static/default-profile.png'
+                        });
+                        if (unsubscribeBtn) {
+                            unsubscribeBtn.style.display = 'none';
+                        }
+                    });
+            }
+            
+            function updateProfileUI(user) {
+                if (profileName) profileName.textContent = user.name || 'User';
+                if (profileEmail) profileEmail.textContent = user.email || 'user@example.com';
+                if (profileImage) profileImage.src = user.picture || '/static/default-profile.png';
+            }
+            
+            function showLoggedInState() {
+                if (profileContainer) profileContainer.style.display = 'block';
+                if (notLoggedInButtons) notLoggedInButtons.style.display = 'none';
+            }
+            
+            function showLoggedOutState() {
+                if (profileContainer) profileContainer.style.display = 'none';
+                if (notLoggedInButtons) notLoggedInButtons.style.display = 'block';
+            }
+            
+            function logout() {
+                showPageLoading();
+                // Remove all avatar plan selections on logout
+                Object.keys(localStorage).forEach(function(key) {
+                  if (key.startsWith('selectedPlan_')) {
+                    localStorage.removeItem(key);
+                  }
+                });
+                fetch('/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.href = '/';
+                    } else {
+                        throw new Error('Logout failed');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error during logout:', error);
+                    hidePageLoading();
+                    alert('Logout failed. Please try again.');
+                });
+            }
+            
+            // Page loading spinner - use for page navigation/transitions
+            function showPageLoading() {
+                if (loadingSpinner) loadingSpinner.style.display = 'flex';
+            }
+            
+            function hidePageLoading() {
+                if (loadingSpinner) loadingSpinner.style.display = 'none';
+            }
+            function getUserInitials(name) {
+    if (!name) return 'U';
+    
+    // Split the name by spaces and get first two words
+    const nameParts = name.split(' ');
+    
+    if (nameParts.length === 1) {
+        // If only one name, return first two letters
+        return nameParts[0].substring(0, 2).toUpperCase();
+    } else {
+        // If multiple names, return first letter of first two names
+        return (nameParts[0].charAt(0) + nameParts[1].charAt(0)).toUpperCase();
+    }
+}
+            // Chat-specific loading indicator
+            function showChatLoading() {
+    // Create chat loading indicator
+    const loadingHTML = `
+        <div class="message" id="loading-message">
+            <div class="message-avatar">OP</div>
+            <div>
+                <div class="message-content chat-loading">
+                    <div class="chat-loading-indicator">
+                        <div class="chat-loading-dot"></div>
+                        <div class="chat-loading-dot"></div>
+                        <div class="chat-loading-dot"></div>
+                    </div>
+                    <span>Thinking...</span>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    chatMessages.insertAdjacentHTML('beforeend', loadingHTML);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+            
+            function hideChatLoading() {
+                const loadingMessage = document.getElementById('loading-message');
+                if (loadingMessage) {
+                    loadingMessage.remove();
+                }
+            }
+            
+            // Mock API response for development without backend
+            // Remove this in production and implement the real API endpoints
+            if (!window.fetch) {
+                window.fetch = function(url, options) {
+                    return new Promise((resolve, reject) => {
+                        if (url === '/check-login-status') {
+                            resolve({
+                                json: () => Promise.resolve({ loggedIn: false })
+                            });
+                        } else if (url === '/api/user-profile') {
+                            resolve({
+                                ok: true,
+                                json: () => Promise.resolve({
+                                    name: 'Test User',
+                                    email: 'test@example.com',
+                                    picture: '/static/default-profile.png'
+                                })
+                            });
+                        } else if (url === '/logout' && options.method === 'POST') {
+                            resolve({
+                                ok: true
+                            });
+                        } else {
+                            reject(new Error('Not implemented'));
+                        }
+                    });
+                };
+            }
+          
+            // Auto-resize chat input
+            chatInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+                
+                // Enable/disable send button based on input
+                chatSendBtn.disabled = !this.value.trim();
+            });
+            
+            // Handle enter key press
+            chatInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            // Send message function
+            chatSendBtn.addEventListener('click', sendMessage);
+            
+            let apiMode = null;
+            let isPremium = false;
+            let usageCount = 0;
+
+            window.addEventListener('DOMContentLoaded', function() {
+                const modal = document.getElementById('api-mode-modal');
+                const chatMain = document.getElementById('chat-main-content');
+                const freeBtn = document.getElementById('modal-free-btn');
+                const premiumBtn = document.getElementById('modal-premium-btn');
+                const monthlyOption = document.getElementById('monthly-option');
+                const annualOption = document.getElementById('annual-option');
+                const recurringCheckbox = document.getElementById('recurring-checkbox');
+
+                // Plan card click listeners
+                if (monthlyOption) {
+                    monthlyOption.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        selectPricingOption('monthly');
+                    });
+                }
+                if (annualOption) {
+                    annualOption.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        selectPricingOption('annual');
+                    });
+                }
+
+                // On page load, check for plan selection in localStorage
+                fetch('/api/user-profile')
+                    .then(res => res.json())
+                    .then(user => {
+                        isPremium = user.premium;
+                        usageCount = user.sonnet_usage_count || 0;
+                        console.log('[PAGE LOAD] usageCount', usageCount, 'isPremium', isPremium);
+                        const selectedPlan = localStorage.getItem('selectedPlan_oompiet');
+                        if (isPremium) {
+                            apiMode = 'premium';
+                            modal.style.display = 'none';
+                            chatMain.style.display = 'block';
+                        } else if (usageCount < 10) {
+                            modal.style.display = 'flex';
+                            chatMain.style.display = 'block';
+                        } else {
+                            if (selectedPlan === 'free') {
+                                modal.style.display = 'none';
+                                chatMain.style.display = 'block';
+                                apiMode = 'free';
+                            } else {
+                                modal.style.display = 'flex';
+                                chatMain.style.display = 'none';
+                            }
+                        }
+                    });
+
+                // Attach click handler for Free plan
+                if (freeBtn) {
+                    freeBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        apiMode = 'free';
+                        localStorage.setItem('selectedPlan_oompiet', 'free');
+                        modal.style.display = 'none';
+                        chatMain.style.display = 'block';
+                    });
+                }
+
+                // Attach click handler for Premium plan
+                if (premiumBtn) {
+                    premiumBtn.addEventListener('click', function(e) {
+                        
+                        e.stopPropagation(); // Prevent triggering the card's click
+  
+  // Remove payment logic and redirect to chat page
+                        apiMode = 'free';
+                        modal.style.display = 'none';
+                        chatMain.style.display = 'block';
+                        chatMain.style.animation = 'fadeIn 0.5s ease-out forwards';
+                    });
+                }
+            });
+
+            function sendMessage() {
+                const message = chatInput.value.trim();
+                if (!message) return;
+
+                // Add message to chat
+                const currentTime = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                const userMessageHTML = `
+    <div class="message message-user">
+        <div class="message-avatar">${getUserInitials(profileName ? profileName.textContent : 'U')}</div>
+        <div>
+            <div class="message-content">
+                ${escapeHtml(message)}
+            </div>
+            <div class="message-time">${currentTime}</div>
+        </div>
+    </div>
+`;
+                
+                chatMessages.insertAdjacentHTML('beforeend', userMessageHTML);
+                
+                // Clear input
+                chatInput.value = '';
+                chatInput.style.height = 'auto';
+                chatSendBtn.disabled = true;
+                
+                // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // Show loading indicator in chat
+                showChatLoading();
+                
+                // Call the RAG API
+                callRagApi(message);
+
+                // After sending a message, fetch the latest usage count and premium status
+                fetch('/api/user-profile')
+                  .then(res => res.json())
+                  .then(user => {
+                    isPremium = user.premium;
+                    usageCount = user.sonnet_usage_count || 0;
+                    console.log('[SEND MESSAGE] usageCount', usageCount, 'isPremium', isPremium);
+                  });
+            }
+            
+// Replace the existing callRagApi and displayAssistantResponse functions with these:
+
+const collectionName = "Tailings_engineer_docs";
+
+function callRagApi(query) {
+    let endpoint;
+    if (usageCount < 9) {
+        endpoint = 'https://oompiet.space/hybrid_rag';
+    } else {
+        endpoint = apiMode === 'premium'
+            ? 'https://oompiet.space/rag'
+            : 'https://oompiet.space/hybrid_rag';
+    }
+    let conversationId = sessionStorage.getItem('conversation_id');
+    console.log('Sending conversation_id:', conversationId); // Debug log
+    const requestBody = {
+        query: query,
+        top_k: 5,
+        max_tokens: 4096,
+        collection_name: collectionName,
+        user_id: window.currentUserId || 'demo-user',
+        conversation_id: conversationId || undefined
+    };
+
+    fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody),
+        mode: "cors"
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.text().then(text => { throw new Error(text); });
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Received conversation_id:', data.conversation_id); // Debug log
+        if (data.conversation_id) {
+            sessionStorage.setItem('conversation_id', data.conversation_id);
+        }
+        hideChatLoading();
+        displayAssistantResponseWithStreaming(data.answer);
+    })
+    .catch(error => {
+        hideChatLoading();
+        displayErrorMessage("Sorry, I'm having trouble connecting right now. Please try again.");
+    });
+}
+
+function displayAssistantResponseWithStreaming(message) {
+    const currentTime = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    const messageId = 'assistant-message-' + Date.now();
+    
+    // Create the message container with feedback UI
+    const assistantMessageHTML = `
+        <div class="message" id="${messageId}">
+            <div class="message-avatar">OP</div>
+            <div>
+                <div class="message-content" id="${messageId}-content">
+                    <span class="streaming-cursor">|</span>
+                </div>
+                <div class="message-time">${currentTime}</div>
+                <div class="message-feedback" id="${messageId}-feedback">
+                    <span class="feedback-prompt">Help us improve by rating this answer:</span>
+                    <div class="feedback-buttons">
+                        <button class="feedback-button positive" onclick="submitFeedback('${messageId}', true)" title="Helpful">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M2 20h2c.55 0 1-.45 1-1v-9c0-.55-.45-1-1-1H2v11zm19.83-7.12c.11-.25.17-.52.17-.8V11c0-1.1-.9-2-2-2h-5.5l.92-4.65c.05-.22.02-.46-.08-.66-.23-.45-.52-.86-.88-1.22L14 2 7.59 8.41C7.21 8.79 7 9.3 7 9.83v7.84C7 18.95 8.05 20 9.34 20h8.11c.7 0 1.36-.37 1.72-.97l2.66-6.15z"/>
+                            </svg>
+                        </button>
+                        <button class="feedback-button negative" onclick="submitFeedback('${messageId}', false)" title="Not helpful">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M22 4h-2c-.55 0-1 .45-1 1v9c0 .55.45 1 1 1h2V4zM2.17 11.12c-.11.25-.17.52-.17.8V13c0 1.1.9 2 2 2h5.5l-.92 4.65c-.05.22-.02.46.08.66.23.45.52.86.88 1.22L10 22l6.41-6.41c.38-.38.59-.89.59-1.42V6.34C17 5.05 15.95 4 14.66 4H6.56c-.71 0-1.36.37-1.72.97l-2.67 6.15z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <span class="feedback-submitted">Thank you for your feedback!</span>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    chatMessages.insertAdjacentHTML('beforeend', assistantMessageHTML);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Start the streaming simulation
+    simulateTyping(messageId, message);
+}
+
+function simulateTyping(messageId, fullText) {
+    const contentElement = document.getElementById(`${messageId}-content`);
+    if (!contentElement) return;
+    
+    // Split text into chunks (roughly line-sized)
+    const chunks = fullText.split(/([.!?]\s+|\n+)/);
+    let currentIndex = 0;
+    let displayedText = '';
+    
+    function typeNextChunk() {
+        if (currentIndex >= chunks.length) {
+            // Typing complete - remove cursor
+            contentElement.innerHTML = fullText.replace(/\n/g, '<br>');
+            return;
+        }
+        
+        // Add the next chunk and any following punctuation/linebreak
+        displayedText += chunks[currentIndex] + (chunks[currentIndex + 1] || '');
+        currentIndex += 2;
+        
+        // Update the display with cursor
+        contentElement.innerHTML = displayedText.replace(/\n/g, '<br>') + '<span class="streaming-cursor">|</span>';
+        
+        // Allow scrolling while typing
+        chatMessages.style.pointerEvents = 'auto';
+        chatMessages.style.overflowY = 'auto';
+        
+        // Only auto-scroll if user is at bottom
+        const isAtBottom = chatMessages.scrollHeight - chatMessages.clientHeight <= chatMessages.scrollTop + 50;
+        if (isAtBottom) {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // Very short delay between chunks for visual feedback
+        setTimeout(typeNextChunk, 50);
+    }
+    
+    // Start typing
+    typeNextChunk();
+}
+
+// Alternative version with word-by-word streaming (smoother for long texts)
+function simulateTypingByWords(messageId, fullText) {
+    const contentElement = document.getElementById(`${messageId}-content`);
+    if (!contentElement) return;
+    
+    // Split text into words while preserving spaces and line breaks
+    const words = fullText.split(/(\s+|\n)/);
+    let currentWordIndex = 0;
+    let displayedText = '';
+    
+    function typeNextWord() {
+        if (currentWordIndex >= words.length) {
+            // Typing complete - remove cursor
+            contentElement.innerHTML = fullText.replace(/\n/g, '<br>');
+            return;
+        }
+        
+        const currentWord = words[currentWordIndex];
+        displayedText += currentWord;
+        
+        // Update the display with cursor
+        contentElement.innerHTML = displayedText.replace(/\n/g, '<br>') + '<span class="streaming-cursor">|</span>';
+        
+        // Auto-scroll to bottom
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        currentWordIndex++;
+        
+        // Calculate delay based on word length and content
+        let delay = 50 + (currentWord.length * 10); // Base delay + word length
+        
+        // Add extra delay after sentences
+        if (currentWord.includes('.') || currentWord.includes('!') || currentWord.includes('?')) {
+            delay += 300;
+        }
+        // Add delay after commas
+        else if (currentWord.includes(',')) {
+            delay += 100;
+        }
+        
+        setTimeout(typeNextWord, delay);
+    }
+    
+    // Start typing
+    typeNextWord();
+}
+
+// Enhanced version with configurable speed
+function simulateTypingWithSpeed(messageId, fullText, speed = 'normal') {
+    const contentElement = document.getElementById(`${messageId}-content`);
+    if (!contentElement) return;
+    
+    // Speed configurations
+    const speedConfigs = {
+        slow: { base: 80, punctuation: 400, space: 100 },
+        normal: { base: 30, punctuation: 200, space: 50 },
+        fast: { base: 15, punctuation: 100, space: 25 },
+        instant: { base: 5, punctuation: 20, space: 10 }
+    };
+    
+    const config = speedConfigs[speed] || speedConfigs.normal;
+    
+    let currentIndex = 0;
+    let displayedText = '';
+    
+    function typeNextCharacter() {
+        if (currentIndex >= fullText.length) {
+            // Typing complete - remove cursor
+            contentElement.innerHTML = fullText.replace(/\n/g, '<br>');
+            return;
+        }
+        
+        const currentChar = fullText[currentIndex];
+        displayedText += currentChar;
+        
+        // Update the display with cursor
+        contentElement.innerHTML = displayedText.replace(/\n/g, '<br>') + '<span class="streaming-cursor">|</span>';
+        
+        // Auto-scroll to bottom
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        currentIndex++;
+        
+        // Calculate delay for next character
+        let delay = config.base;
+        
+        if (['.', '!', '?', ';', ':'].includes(currentChar)) {
+            delay += config.punctuation;
+        } else if ([',', ' '].includes(currentChar)) {
+            delay += config.space;
+        }
+        
+        // Add small random variation
+        delay += Math.random() * 10 - 5;
+        
+        setTimeout(typeNextCharacter, Math.max(delay, 5));
+    }
+    
+    typeNextCharacter();
+}
+
+function displayErrorMessage(errorText) {
+    const currentTime = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    
+    const errorMessageHTML = `
+        <div class="message">
+            <div class="message-avatar">OP</div>
+            <div>
+                <div class="message-content">
+                    <span style="color: var(--danger);">${errorText}</span>
+                </div>
+                <div class="message-time">${currentTime}</div>
+            </div>
+        </div>
+    `;
+    
+    chatMessages.insertAdjacentHTML('beforeend', errorMessageHTML);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Optional: Add a function to allow users to skip the animation and show full response immediately
+function skipTypingAnimation(messageId, fullText) {
+    const contentElement = document.getElementById(`${messageId}-content`);
+    if (contentElement) {
+        contentElement.innerHTML = fullText.replace(/\n/g, '<br>');
+    }
+}
+
+// You can also add a click handler to allow users to skip the typing animation
+// Just add this to your event listeners:
+/*
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.message-content') && e.target.closest('.message-content').querySelector('.streaming-cursor')) {
+        const messageElement = e.target.closest('.message');
+        const messageId = messageElement.id;
+        // Skip animation - you'd need to store the full text somewhere accessible
+        // This is just an example of how you could implement it
+    }
+});
+*/
+            function displayAssistantResponse(message) {
+    const currentTime = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    
+    const assistantMessageHTML = `
+        <div class="message">
+            <div class="message-avatar">OP</div>
+            <div>
+                <div class="message-content">
+                    ${message.replace(/\n/g, '<br>')}
+                </div>
+                <div class="message-time">${currentTime}</div>
+            </div>
+        </div>
+    `;
+    
+    chatMessages.insertAdjacentHTML('beforeend', assistantMessageHTML);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function showFreeVersionBanner(user) {
+    const banner = document.getElementById('free-version-banner');
+    if (!banner) return;
+    if (!user.premium && user.sonnet_usage_count >= 10) {
+        banner.innerHTML = `
+            <span style="color: var(--neutral-dark); font-size: 1rem; font-weight: 500; vertical-align: middle;">
+                You're in Free version – 
+                <a href="#" id="go-premium-link" style="color: var(--secondary-dark-orange); text-decoration: underline; font-weight: 600;">go premium!</a>
+            </span>
+        `;
+        banner.style.display = 'flex';
+        // Add event listener to open modal
+        setTimeout(function() {
+          var link = document.getElementById('go-premium-link');
+          if (link) {
+            link.addEventListener('click', function(e) {
+              e.preventDefault();
+              var modal = document.getElementById('api-mode-modal');
+              if (modal) modal.style.display = 'flex';
+            });
+          }
+        }, 0);
+    } else {
+        banner.style.display = 'none';
+    }
+}
+         
+            
+            // Helper function to escape HTML
+            function escapeHtml(unsafe) {
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+         
+            // Add feedback handling function
+            window.submitFeedback = function(messageId, isPositive) {
+                console.log('submitFeedback called:', { messageId, isPositive });
+                
+                const feedbackContainer = document.getElementById(`${messageId}-feedback`);
+                const buttons = feedbackContainer.querySelectorAll('.feedback-button');
+                const thankYouMessage = feedbackContainer.querySelector('.feedback-submitted');
+                const feedbackPrompt = feedbackContainer.querySelector('.feedback-prompt');
+                const buttonsContainer = feedbackContainer.querySelector('.feedback-buttons');
+                
+                // Remove previous selections
+                buttons.forEach(btn => btn.classList.remove('selected'));
+                
+                // Add selection to clicked button
+                const selectedButton = feedbackContainer.querySelector(isPositive ? '.positive' : '.negative');
+                selectedButton.classList.add('selected');
+                
+                // Get the message content (assistant's response)
+                const messageContent = document.getElementById(`${messageId}-content`).textContent;
+                
+                // Get the user's query by finding the previous user message
+                const messageElement = document.getElementById(messageId);
+                let userQuery = '';
+                let currentElement = messageElement.previousElementSibling;
+                while (currentElement) {
+                    if (currentElement.classList.contains('message-user')) {
+                        userQuery = currentElement.querySelector('.message-content').textContent;
+                        break;
+                    }
+                    currentElement = currentElement.previousElementSibling;
+                }
+                
+                console.log('Sending feedback to server:', {
+                    message_id: messageId,
+                    content: messageContent,
+                    query: userQuery,
+                    is_positive: isPositive
+                });
+
+                // Send feedback to server
+                fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        message_id: messageId,
+                        content: messageContent,
+                        query: userQuery,
+                        is_positive: isPositive,
+                        timestamp: new Date().toISOString()
+                    })
+                })
+                .then(response => {
+                    console.log('Feedback response:', response);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Feedback submitted successfully:', data);
+                    // Show thank you message
+                    feedbackPrompt.style.display = 'none';
+                    buttonsContainer.style.display = 'none';
+                    thankYouMessage.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error submitting feedback:', error);
+                    alert('Failed to submit feedback. Please try again.');
+                });
+            };
+         
+        });
+
+        let apiMode = null;
+        let isPremium = false;
+        let usageCount = 0;
+
+        window.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('api-mode-modal');
+            const chatMain = document.getElementById('chat-main-content');
+            const freeBtn = document.getElementById('modal-free-btn');
+            const premiumBtn = document.getElementById('modal-premium-btn');
+            const freePlanCard = document.getElementById('free-plan-card');
+            const premiumPlanCard = document.getElementById('premium-plan-card');
+            
+            // Initialize pricing option selection
+            selectPricingOption('monthly');
+            
+            // Add hover effects for plan cards
+            function setupPlanCardInteractions() {
+                if (freePlanCard && premiumPlanCard) {
+                    // Free plan card hover effect
+                    freePlanCard.addEventListener('mouseenter', function() {
+                        this.style.boxShadow = '0 5px 15px rgba(0,0,0,0.1)';
+                        this.style.transform = 'translateY(-5px)';
+                    });
+                    
+                    freePlanCard.addEventListener('mouseleave', function() {
+                        this.style.boxShadow = 'none';
+                        this.style.transform = 'translateY(0)';
+                    });
+                    
+                    // Premium plan card hover effect
+                    premiumPlanCard.addEventListener('mouseenter', function() {
+                        this.style.boxShadow = '0 5px 20px rgba(211, 84, 0, 0.2)';
+                        this.style.transform = 'translateY(-5px)';
+                    });
+                    
+                    premiumPlanCard.addEventListener('mouseleave', function() {
+                        this.style.boxShadow = 'none';
+                        this.style.transform = 'translateY(0)';
+                    });
+                    
+                    // Highlight selected plan
+                    freeBtn.addEventListener('click', function(e) {
+                        e.stopPropagation(); // Prevent triggering the card's click
+                        freePlanCard.style.borderColor = 'var(--primary-orange)';
+                        premiumPlanCard.style.borderColor = 'var(--primary-orange)';
+                        setTimeout(function() {
+                            apiMode = 'free';
+                            modal.style.opacity = '0';
+                            modal.style.transform = 'scale(0.9)';
+                            modal.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                            
+                            setTimeout(function() {
+                                modal.style.display = 'none';
+                                chatMain.style.display = 'block';
+                                // Add entrance animation for chat
+                                chatMain.style.animation = 'fadeIn 0.5s ease-out forwards';
+                            }, 300);
+                        }, 400);
+                    });
+                    
+                    // Make premium plan card clickable but not directly trigger the button
+                    premiumPlanCard.addEventListener('click', function(e) {
+                        // Only handle clicks on the card itself, not on its children
+                        if (e.target === this || this.contains(e.target) && !e.target.matches('button, #monthly-option, #annual-option, .pricing-radio')) {
+                            // Highlight the premium card
+                            freePlanCard.style.borderColor = 'var(--primary-orange-20)';
+                            premiumPlanCard.style.borderColor = 'var(--secondary-dark-orange)';
+                        }
+                    });
+                }
+            }
+            
+            // On page load, check if user is premium and show chat directly if so
+            fetch('/api/user-profile')
+              .then(res => res.ok ? res.json() : null)
+              .then(user => {
+                if (user && user.premium) {
+                  apiMode = 'premium';
+                  if (modal) modal.style.display = 'none';
+                  if (chatMain) {
+                    chatMain.style.display = 'block';
+                    chatMain.style.animation = 'fadeIn 0.5s ease-out forwards';
+                  }
+                } else {
+                  if (modal) modal.style.display = 'flex';
+                  if (chatMain) chatMain.style.display = 'none';
+                  setupPlanCardInteractions();
+                }
+              })
+              .catch(() => {
+                if (modal) modal.style.display = 'flex';
+                if (chatMain) chatMain.style.display = 'none';
+                setupPlanCardInteractions();
+              });
+              
+            if (freeBtn && premiumBtn && modal && chatMain) {
+                // Premium button click handler
+                premiumBtn.addEventListener('click', function(e) {
+                    e.stopPropagation(); // Prevent triggering the card's click
+                    
+                    // Check if user is already premium
+                    fetch('/api/user-profile')
+                      .then(res => res.ok ? res.json() : null)
+                      .then(user => {
+                        if (user && user.premium) {
+                          apiMode = 'premium';
+                          
+                          // Add exit animation
+                          modal.style.opacity = '0';
+                          modal.style.transform = 'scale(0.9)';
+                          modal.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                          
+                          setTimeout(function() {
+                            modal.style.display = 'none';
+                            chatMain.style.display = 'block';
+                            // Add entrance animation for chat
+                            chatMain.style.animation = 'fadeIn 0.5s ease-out forwards';
+                          }, 300);
+                        } else {
+                          // Redirect to payment page with selected pricing option
+                          const paymentUrl = selectedPricingOption === 'monthly' 
+                            ? '/pay?plan=monthly&amount=149.00' 
+                            : '/pay?plan=annual&amount=1548.00';
+                          window.location.href = paymentUrl;
+                        }
+                      })
+                      .catch(() => {
+                        // Redirect to payment page with selected pricing option on error
+                        const paymentUrl = selectedPricingOption === 'monthly' 
+                          ? '/pay?plan=monthly&amount=149.00' 
+                          : '/pay?plan=annual&amount=1548.00';
+                        window.location.href = paymentUrl;
+                      });
+                });
+            }
+        });
+
+        // --- Plan selection logic for modal ---
+        function selectPricingOption(option) {
+            window.selectedPricingOption = option;
+            const monthlyOption = document.getElementById('monthly-option');
+            const annualOption = document.getElementById('annual-option');
+            if (monthlyOption && annualOption) {
+                if (option === 'monthly') {
+                    monthlyOption.style.borderColor = 'var(--primary-orange)';
+                    annualOption.style.borderColor = 'var(--primary-orange-20)';
+                    if (monthlyOption.querySelector('.radio-inner')) monthlyOption.querySelector('.radio-inner').style.display = 'block';
+                    if (annualOption.querySelector('.radio-inner')) annualOption.querySelector('.radio-inner').style.display = 'none';
+                } else {
+                    annualOption.style.borderColor = 'var(--primary-orange)';
+                    monthlyOption.style.borderColor = 'var(--primary-orange-20)';
+                    if (annualOption.querySelector('.radio-inner')) annualOption.querySelector('.radio-inner').style.display = 'block';
+                    if (monthlyOption.querySelector('.radio-inner')) monthlyOption.querySelector('.radio-inner').style.display = 'none';
+                }
+            }
+        }
+        window.selectedPricingOption = 'monthly';
+
+        // Fetch the logged-in user's email on page load
+        window.currentUserId = null;
+        fetch('/api/user-profile')
+          .then(res => res.ok ? res.json() : null)
+          .then(user => {
+            if (user && user.email) {
+              window.currentUserId = user.email;
+            }
+          })
+          .catch(() => {
+            window.currentUserId = null;
+          });
+
+        // On page load, clear conversation_id so a new chat starts when user comes to this avatar
+        sessionStorage.removeItem('conversation_id');
+
+        // Add periodic session validation
+        let sessionCheckInterval;
+        
+        function startSessionValidation() {
+            // Check session every 30 seconds
+            sessionCheckInterval = setInterval(() => {
+                fetch('/check-login-status')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.loggedIn) {
+                            // User has been logged out from another device
+                            clearInterval(sessionCheckInterval);
+                            // Redirect to login page
+                            window.location.href = '/';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Session check error:', error);
+                    });
+            }, 30000); // Check every 30 seconds
+        }
+        
+        function showSessionExpiredModal() {
+            const modalHTML = `
+                <div id="session-expired-modal" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);z-index:3000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(5px);">
+                    <div style="background:#fff;padding:2.5rem;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);text-align:center;max-width:500px;width:95%;animation:fadeIn 0.5s ease-out;">
+                        <div style="font-size:3rem;margin-bottom:1rem;">🔒</div>
+                        <h2 style="margin-bottom:1rem;color:#163c66;font-size:1.5rem;">Session Expired</h2>
+                        <p style="margin-bottom:2rem;color:#666;line-height:1.6;">Your account has been logged in on another device. You have been logged out for security reasons.</p>
+                        
+                        <button id="relogin-btn" style="padding:0.8rem 2rem;border-radius:8px;font-weight:600;cursor:pointer;background:#1d78a3;color:white;border:none;font-size:1rem;">Login Again</button>
+                    </div>
+                </div>
+            `;
+            
+            // Add modal to page
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            
+            // Add event listener
+            document.getElementById('relogin-btn').addEventListener('click', () => {
+                window.location.href = '/';
+            });
+        }
+        
+        // Start session validation when user is logged in
+        if (window.currentUserId) {
+            startSessionValidation();
+        }
+
+        // Immediate session check on page load
+        fetch('/check-login-status')
+            .then(response => response.json())
+            .then(data => {
+                if (!data.loggedIn) {
+                    // User is not logged in, redirect to login page
+                    window.location.href = '/';
+                }
+            })
+            .catch(error => {
+                console.error('Session check error:', error);
+                // On error, redirect to login page for safety
+                window.location.href = '/';
+            });
+
+        // In the chat header, display the collection name:
+        const chatHeader = document.querySelector('.chat-header');
+        if (chatHeader) {
+            const collectionTag = document.createElement('span');
+            collectionTag.textContent = `Collection: ${collectionName}`;
+            collectionTag.style.marginLeft = '1rem';
+            collectionTag.style.fontSize = '0.95rem';
+            collectionTag.style.color = 'var(--neutral-medium)';
+            chatHeader.appendChild(collectionTag);
+        }
+    </script>
+    
+</body>
+</html>

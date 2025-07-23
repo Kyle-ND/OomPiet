@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mentormate – Terms and Conditions</title>
+    <link rel="icon" type="image/png" href="/static/logo1.PNG">
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/pabasing');
+        :root {
+            --primary-green: #3db54b;
+            --primary-blue: #1d78a3;
+            --secondary-navy: #163c66;
+            --neutral-dark: #333333;
+            --neutral-medium: #666666;
+            --neutral-light: #999999;
+            --neutral-lighter: #cccccc;
+            --neutral-lightest: #f5f7fa;
+            --white: #ffffff;
+        }
+        body {
+            background-color: var(--neutral-lightest);
+            color: var(--neutral-dark);
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+        }
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.2rem 2rem;
+            background-color: var(--white);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .navbar-brand span {
+            font-size: 2.1rem;
+            font-weight: 600;
+            color: var(--secondary-navy);
+            display: flex;
+            align-items: center;
+            font-family: sans-serif;
+        }
+        .navbar-brand img {
+            height: 64px !important;
+            margin-right: 10px;
+        }
+        .navbar-buttons {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .profile-container {
+            position: relative;
+            display: none;
+        }
+        .profile-button {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+        .profile-image {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--primary-blue);
+        }
+        .main-content {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 3rem 1rem 2rem 1rem;
+        }
+        .detail-container {
+            background: var(--white);
+            border-radius: 16px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            max-width: 1000px;
+            width: 100%;
+            padding: 2.5rem 2rem 2rem 2rem;
+            margin: 0 auto;
+        }
+        .detail-container h1 {
+            font-size: 2.2rem;
+            color: var(--primary-blue);
+            margin-bottom: 1.5rem;
+            text-align: center;
+            border-bottom: 3px solid var(--primary-blue);
+            padding-bottom: 1rem;
+        }
+        .detail-container h2 {
+            font-size: 1.4rem;
+            color: var(--secondary-navy);
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--primary-green);
+            padding-left: 1rem;
+        }
+        .detail-container h3 {
+            font-size: 1.2rem;
+            color: var(--primary-blue);
+            margin-top: 1.5rem;
+            margin-bottom: 0.8rem;
+        }
+        .detail-container p, .detail-container li {
+            font-size: 1.05rem;
+            color: var(--neutral-dark);
+            line-height: 1.7;
+            margin-bottom: 0.8rem;
+        }
+        .detail-container ul, .detail-container ol {
+            margin-left: 1.5em;
+            margin-bottom: 1.2em;
+        }
+        .clause {
+            background: #f8f9fb;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 1.2em;
+            margin: 1em 0;
+        }
+        .clause-number {
+            font-weight: 600;
+            color: var(--primary-blue);
+            margin-bottom: 0.5em;
+            display: block;
+        }
+        .sub-clause {
+            margin-left: 1.5em;
+            margin-top: 0.8em;
+        }
+        .definition-term {
+            font-weight: 600;
+            color: var(--secondary-navy);
+        }
+        .important-notice {
+            background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+            border-left: 4px solid var(--primary-blue);
+            padding: 1em;
+            margin: 1.5em 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .signature-section {
+            margin-top: 3em;
+            padding-top: 2em;
+            border-top: 2px solid var(--neutral-lighter);
+            text-align: center;
+            font-style: italic;
+            color: var(--neutral-medium);
+        }
+        @media (max-width: 900px) {
+            .detail-container { 
+                padding: 1.2rem 0.8rem; 
+                margin: 0 0.5rem;
+            }
+            .detail-container h1 {
+                font-size: 1.8rem;
+            }
+            .detail-container h2 {
+                font-size: 1.2rem;
+            }
+            .clause {
+                padding: 1em 0.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <a href="/" style="display: flex; align-items: center; text-decoration: none;">
+                <img src="/static/logo.png" alt="Logo" style="height: 64px; margin-right: 10px;">
+            </a>
+        </div>
+        <div class="navbar-buttons">
+            <div class="profile-container" id="profile-container">
+                <button class="profile-button" id="profile-button">
+                    <img src="/static/default-profile.png" alt="Profile" class="profile-image" id="profile-image">
+                </button>
+                <div class="profile-dropdown" id="profile-dropdown" style="display:none;"></div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-content">
+        <div class="detail-container">
+            <h1>Software Licence Terms and Conditions</h1>
+            
+            <div class="important-notice">
+                <strong>Important:</strong> These Terms govern your use of the Mentormate software. By accessing or using the Software, you agree to be bound by these Terms and Conditions.
+            </div>
+
+            <div class="clause">
+                <span class="clause-number">1. Background</span>
+                <p><strong>1.1</strong> The Supplier is the entire legal and beneficial owner and licensor of the Software and is willing to license the Customer to use these products subject to the Terms.</p>
+            </div>
+
+            <div class="clause">
+                <span class="clause-number">2. Agreed Terms</span>
+                <h3>Interpretation</h3>
+                <p><strong>2.1</strong> The definitions and rules of interpretation in this clause apply in these Terms.</p>
+                
+                <div class="sub-clause">
+                    <p><strong>2.1.1</strong> <span class="definition-term">"Affiliate"</span> means any business entity from time to time controlling, controlled by, or under common control with, either party;</p>
+                    
+                    <p><strong>2.1.2</strong> <span class="definition-term">"Business Day"</span> means any day other than a Saturday, Sunday or gazetted national public holiday in South Africa;</p>
+                    
+                    <p><strong>2.1.3</strong> <span class="definition-term">"Business Hours"</span> means the period from 9.00 am to 5.00pm on any Business Day;</p>
+                    
+                    <p><strong>2.1.4</strong> <span class="definition-term">"Data Protection Laws"</span> means any data protection or data privacy laws applicable in South Africa or to the parties and their conduct in terms of or relating to these Terms from time to time in respect of which compliance is mandatory;</p>
+                    
+                    <p><strong>2.1.5</strong> <span class="definition-term">"Fee"</span> means the licence fee payable by the Customer to the Supplier in respect of the Software as set out in clause 6;</p>
+                    
+                    <p><strong>2.1.6</strong> <span class="definition-term">"Intellectual Property Rights"</span> means all current and future intellectual property rights of whatsoever nature, whether registered or unregistered, arising anywhere in the world, including (without limitation) invention rights; patents; designs; trade marks; domain names; rights of copyright and all associated moral rights subsisting in or relating to Materials, (including in respect of any programming, algorithms, object code, source code and other Materials); database rights; know-how; trade secrets; confidential information; rights in goodwill and reputation; intellectual property rights in work product not protected by copyright laws; any similar rights eligible for protection anywhere in the world; and rights to sue any person for any present and/or past violation, infringement or misappropriation of any of the foregoing;</p>
+                    
+                    <p><strong>2.1.7</strong> <span class="definition-term">"Maintenance Release"</span> means a release of the Software that corrects faults, adds functionality or otherwise amends or upgrades the Software, but which does not constitute a New Version;</p>
+                    
+                    <p><strong>2.1.8</strong> <span class="definition-term">"Materials"</span> means all materials, software, systems, platforms, applications, interfaces (including APIs), modules, components, computer code, protocols, algorithms, technology, products, functional and technical specifications, documentation, research, reports, know-how, inventions, information, designs, studies, models, formulations, methodologies, protocols, techniques, processes, and/or works of authorship, in any form whatsoever, whether tangible or intangible, and whether confidential or not;</p>
+                    
+                    <p><strong>2.1.9</strong> <span class="definition-term">"New Version"</span> means any new version of the Software which from time to time is publicly marketed and offered for purchase by the Supplier in the course of its normal business, being a version which contains such significant differences from the previous versions as to be generally accepted in the marketplace as constituting a new product;</p>
+                    
+                    <p><strong>2.1.10</strong> <span class="definition-term">"Open-Source Software"</span> means any software programs which are licensed under any form of open-source licence meeting the Open Source Initiative's open source definition from time to time; and</p>
+                    
+                    <p><strong>2.1.11</strong> <span class="definition-term">"Personal Data"</span> means personal data as defined in applicable Data Protection Laws.</p>
+                </div>
+
+                <p><strong>2.2</strong> Unless the context otherwise requires:</p>
+                <div class="sub-clause">
+                    <p><strong>2.2.1</strong> words in the singular include the plural and in the plural include the singular;</p>
+                    <p><strong>2.2.2</strong> a reference to a statute or statutory provision is a reference to it as amended, extended or re-enacted from time to time; and</p>
+                    <p><strong>2.2.3</strong> any words following the terms including, include, in particular, for example or any similar expression shall be construed as illustrative and shall not limit the sense of the words, description, definition, phrase or term preceding those terms.</p>
+                </div>
+
+                <p><strong>2.3</strong> A person includes a natural person, corporate or unincorporated body (whether or not having separate legal personality) and that person's personal representatives, successors and permitted assigns.</p>
+                
+                <p><strong>2.4</strong> References to clauses are to the clauses of these Terms.</p>
+                
+                <p><strong>2.5</strong> A reference to writing or written excludes fax but not email.</p>
+            </div>
+
+            <div class="clause">
+                <span class="clause-number">3. Duration</span>
+                <p><strong>3.1</strong> These Terms shall commence on the date of signature by the party signing last in time and shall endure indefinitely until terminated in accordance with its terms.</p>
+            </div>
+
+            <div class="clause">
+                <span class="clause-number">4. Licence</span>
+                <p><strong>4.1</strong> In consideration of the Fee paid by the Customer to the Supplier, the Supplier grants to the Customer a non-exclusive licence to use the Software for the month or year in respect of which the Fee has been paid.</p>
+                
+                <p><strong>4.2</strong> In relation to scope of use:</p>
+                <div class="sub-clause">
+                    <p><strong>4.2.1</strong> for the purposes of clause 4.1, use of the Software shall be restricted to use of the Software in object code form for the purpose of processing the Customer's data for the normal business purposes of the Customer (which shall not include allowing the use of the Software by, or for the benefit of, any person other than an employee of the Customer);</p>
+                    
+                    <p><strong>4.2.2</strong> the Customer may not use the Software other than as specified in these Terms (including clause 4.1 and clause 4.2.1) without the prior written consent of the Supplier, and the Customer acknowledges that additional fees may be payable on any change of use approved by the Supplier, including in accordance with clause 4.6.3;</p>
+                    
+                    <p><strong>4.2.3</strong> except as expressly stated in this clause, the Customer has no right (and shall not permit any third party) to copy, adapt, reverse engineer, decompile, disassemble, modify, adapt or make error corrections to the Software in whole or in part except to the extent that any reduction of the Software to human readable form (whether by reverse engineering, decompilation or disassembly) is necessary for the purposes of integrating the operation of the Software with the operation of other software or systems used by the Customer, unless the Supplier is prepared to carry out such action at a reasonable commercial fee or has provided the information necessary to achieve such integration within a reasonable period, and the Customer shall request the Supplier to carry out such action or to provide such information (and shall meet the Supplier's reasonable costs in providing that information) before undertaking any such reduction;</p>
+                </div>
+
+                <p><strong>4.3</strong> The Customer shall not:</p>
+                <div class="sub-clause">
+                    <p><strong>4.3.1</strong> sub-license, assign or novate the benefit or burden of this licence in whole or in part;</p>
+                    <p><strong>4.3.2</strong> allow the Software to become the subject of any charge, lien or encumbrance;</p>
+                    <p><strong>4.3.3</strong> deal in any other manner with any or all of its rights and obligations under these Terms, and</p>
+                    <p><strong>4.3.4</strong> allow the number of persons using the Software to exceed one;</p>
+                    <p>without the prior written consent of the Supplier.</p>
+                </div>
+
+                <p><strong>4.4</strong> The Supplier may at any time sub-license, assign, novate, charge or deal in any other manner with any or all of its rights and obligations under this licence, provided it gives written notice to the Customer.</p>
+                
+                <p><strong>4.5</strong> Each party confirms it is acting on its own behalf and not for the benefit of any other person.</p>
+                
+                <p><strong>4.6</strong> The Customer shall:</p>
+                <div class="sub-clause">
+                    <p><strong>4.6.1</strong> keep a complete and accurate record of the Customer's copying and disclosure of the Software and its users, and produce such record to the Supplier on request from time to time;</p>
+                    <p><strong>4.6.2</strong> notify the Supplier as soon as it becomes aware of any unauthorized use of the Software by any person;</p>
+                    <p><strong>4.6.3</strong> pay, for broadening the scope of the licences granted under this licence to cover the unauthorized use, an amount equal to the fees which the Supplier would have levied (in accordance with its normal commercial terms then current) had it licensed any such unauthorised use on the date when such use commenced together with interest at the rate provided for in clause 6.3, from such date to the date of payment.</p>
+                </div>
+
+                <p><strong>4.7</strong> The Customer shall permit the Supplier to inspect and have access to any premises (and to the computer equipment located there) at or on which the Software is being kept or used, and have access to any records kept in connection with this licence, for the purposes of ensuring that the Customer is complying with the terms of this licence, provided that the Supplier provides reasonable advance notice to the Customer of such inspections, which shall take place at reasonable times.</p>
+            </div>
+
+            <div class="clause">
+                <span class="clause-number">5. Maintenance Releases</span>
+                <p>The Supplier will provide the Customer with all Maintenance Releases generally made available to its customers. The Supplier warrants that no Maintenance Release will adversely affect the then existing facilities or functions of the Software. The Customer shall install all Maintenance Releases as soon as reasonably practicable after receipt.</p>
+            </div>
+
+            <div class="clause">
+                <span class="clause-number">6. Fees</span>
+                <p><strong>6.1</strong> The Customer shall pay to the Supplier the licence fees in respect of the Software agreed in writing between the Supplier and Customer from time to time ("Fee Agreement"), monthly, in advance on or before the first day of the month in question.</p>
+                
+                <p><strong>6.2</strong> The Customer shall make each payment due to the Supplier in full, free of any withholding, set-off, counter-claim, abatement or other similar deduction, into the bank account nominated in writing by the Supplier from time to time. The Customer must provide the Supplier with satisfactory proof that it has paid all applicable deductions and withholdings, including copies of the tax receipts evidencing such payments, within 30 days after the date of each payment.</p>
+                
+                <p><strong>6.3</strong> If the Customer fails to make any payment due to the Supplier under these Terms by the due date for payment, then, without limiting the Supplier's remedies under clause 12, the Customer shall pay interest on the overdue amount at the rate of 2% per annum above First National Bank's base rate from time to time. Such interest shall accrue on a daily basis from the due date until actual payment of the overdue amount, whether before or after judgment. The Customer shall pay the interest together with the overdue amount.</p>
+            </div>
+
+            <div class="clause">
+                <span class="clause-number">7. Confidentiality and Publicity</span>
+                <p><strong>7.1</strong> Each party undertakes that it shall not at any time during these Terms, and for a period of two years after termination or expiry of these Terms disclose to any person any confidential information concerning the business, assets, affairs, customers, clients or suppliers of the other party, except as permitted by clause 7.2.</p>
+                
+                <p><strong>7.2</strong> Each party may disclose the other party's confidential information:</p>
+                <div class="sub-clause">
+                    <p><strong>7.2.1</strong> to its employees, officers, representatives, contractors, subcontractors or advisers who need to know such information for the purposes of exercising the party's rights or carrying out its obligations under or in connection with these Terms. Each party shall ensure that its employees, officers, representatives, contractors, subcontractors or advisers to whom it discloses the other party's confidential information comply with this clause 7; and</p>
+                    <p><strong>7.2.2</strong> as may be required by law, a court of competent jurisdiction or any governmental or regulatory authority.</p>
+                </div>
+                
+                <p><strong>7.3</strong> No party may use any other party's confidential information for any purpose other than to exercise its rights and perform its obligations under or in connection with these Terms.</p>
+                
+                <p><strong>7.4</strong> No party shall make, or permit any person to make, any public announcement concerning these Terms without the prior written consent of the other parties (such consent not to be unreasonably withheld or delayed), except as required by law, any governmental or regulatory authority (including, without limitation, any relevant securities exchange), any court or other authority of competent jurisdiction.</p>
+            </div>
+
+            <div class="clause">
+                <span class="clause-number">8. Supplier's Warranties</span>
+                <p><strong>8.1</strong> The Supplier warrants that it shall, at all times, provide the Software and fulfil its obligations under these Terms in a manner that does not infringe or constitute an infringement or misappropriation of any Intellectual Property Rights or other proprietary rights of any third party.</p>
+                
+                <p><strong>8.2</strong> The Supplier does not warrant that the use of the Software will be uninterrupted or error-free.</p>
+                
+                <p><strong>8.3</strong> The Customer accepts responsibility for the selection of the Software to achieve its intended results and acknowledges that the Software has not been developed to meet the individual requirements of the Customer.</p>
+                
+                <p><strong>8.4</strong> The Customer acknowledges that any Open-Source Software provided by the Supplier is provided "as is" and expressly subject to the disclaimer in clause 8.5.</p>
+                
+                <p><strong>8.5</strong> All other conditions, warranties or other terms which might have effect between the parties or be implied or incorporated into these Terms or any collateral contract, whether by statute, common law or otherwise, are hereby excluded, including the implied conditions, warranties or other terms as to satisfactory quality, fitness for purpose or the use of reasonable skill and care.</p>
+            </div>
+
+            <div class="clause">
+                <span class="clause-number">9. Limits of Liability</span>
+                <p><strong>9.1</strong> Except as expressly stated in clause 9.4:</p>
+                <div class="sub-clause">
+                    <p><strong>9.1.1</strong> the Supplier shall not in any circumstances have any liability for any losses or damages which may be suffered by the Customer (or any person claiming under or through the Customer), whether the same are suffered directly or indirectly or are immediate or consequential, and whether the same arise in contract, tort (including negligence) or otherwise howsoever, which fall within any of the following categories:</p>
+                    
+                    <div class="sub-clause">
+                        <p><strong>9.1.1.1</strong> special damage even if the Supplier was aware of the circumstances in which such special damage could arise;</p>
+                        <p><strong>9.1.1.2</strong> loss of profits;</p>
+                        <p><strong>9.1.1.3</strong> loss of anticipated savings;</p>
+                        <p><strong>9.1.1.4</strong> loss of business opportunity;</p>
+                        <p><strong>9.1.1.5</strong> loss of goodwill;</p>
+                        <p><strong>9.1.1.6</strong> loss or corruption of data;</p>
+                        <p><strong>9.1.1.7</strong> wasted expenditure,</p>
+                    </div>
+                    
+                    <p>provided that this clause 9.1.1 shall not prevent claims for loss of or damage to the Customer's tangible property that fall within the terms of clause 9.2.</p>
+                </div>
+                
+                <p><strong>9.2</strong> The total liability of the Supplier, whether in contract, tort (including negligence) or otherwise and whether in connection with these Terms or any collateral contract, shall in no circumstances exceed a sum equal to the Fee paid in the 12 months preceding the date on which the cause of action arose.</p>
+                
+                <p><strong>9.3</strong> The Customer agrees that, in entering into these Terms, either it did not rely on any representations (whether written or oral) of any kind or of any person other than those expressly set out in these Terms or (if it did rely on any representations, whether written or oral, not expressly set out in these Terms) that it shall have no remedy in respect of such representations and (in either case) the Supplier shall have no liability in any circumstances otherwise than in accordance with these Terms.</p>
+                
+                <p><strong>9.4</strong> The exclusions in clause 8.5 and clause 9.1 shall apply to the fullest extent permissible at law, but the Supplier does not exclude liability for:</p>
+                <div class="sub-clause">
+                    <p><strong>9.4.1</strong> death or personal injury caused by the negligence of the Supplier, its officers, employees, contractors or agents;</p>
+                    <p><strong>9.4.2</strong> fraud or fraudulent misrepresentation; or</p>
+                    <p><strong>9.4.3</strong> any other liability which may not be excluded by law.</p>
+                </div>
+                
+                <p><strong>9.5</strong> All references to "the Supplier" in this clause 9 shall, for the purposes of this clause, be treated as including all employees, subcontractors and suppliers of the Supplier and its Affiliates, all of whom shall have the benefit of the exclusions and limitations of liability set out in this clause.</p>
+            </div>
+
+            <div class="clause">
+                <span class="clause-number">10. Intellectual Property Rights</span>
+                <p><strong>10.1</strong> The Customer acknowledges that all Intellectual Property Rights in the Software and any Maintenance Releases belong and shall belong to the Supplier, and the Customer shall have no rights in or to the Software other than the right to use it in accordance with these Terms.</p>
+            </div>
+
+            <div class="clause">
+                <span class="clause-number">11. Data Protection</span>
+                <p><strong>11.1</strong> Each party warrants that it shall not:</p>
+                <div class="sub-clause">
+                    <p><strong>11.1.1</strong> process any Personal Data in any manner or for any purpose other than as set out in these Terms and to the extent strictly necessary for such purpose, except to the extent specifically requested to do otherwise by the other party in writing; and/or</p>
+                    <p><strong>11.1.2</strong> cause the other party to breach or contravene any applicable Data Protection Laws.</p>
+                </div>
+                
+                <p><strong>11.2</strong> Each party must immediately notify the other party in the event of the notifying party's non-compliance or breach of any applicable Data Protection Laws.</p>
+                
+                <p><strong>11.3</strong> Each party shall take all precautions necessary or required of them by applicable Data Protection Laws to preserve the integrity of the Personal Data and any other data provided or processed on behalf of the other party and to prevent any unauthorised access, use, corruption or loss of such data in its possession or under its control or in the possession or under the control of its personnel.</p>
+                
+                <p><strong>11.4</strong> To the extent applicable to the performance of their obligations in these Terms, each party shall comply with all cybersecurity, IT security, data protection, and data transfer policies notified to it by the other party in writing from time to time.</p>
+            </div>
+
+            <div class="clause">
+                <span class="clause-number">12. Termination</span>
+                <p><strong>12.1</strong> Each party may terminate these Terms for convenience by giving the other party a calendar months' prior written notice of such intention to terminate.</p>
+                
+                <p><strong>12.2</strong> Either party shall be entitled to terminate these Terms immediately on written notice to the other party if:</p>
+                <div class="sub-clause">
+                    <p><strong>12.2.1</strong> the other party commits any act or acts which would entitle any person to apply to a court to have the other party undertake any formal insolvency or administration or business rescue procedure in terms of any applicable laws;</p>
+                    <p><strong>12.2.2</strong> the other party suspends, or threatens to suspend, payment of its debts or is unable to pay its debts as they fall due or admits inability to pay its debts or is deemed unable to pay its debts in terms of any applicable laws;</p>
+                    <p><strong>12.2.3</strong> an application is made to court, or an order is made, for the appointment of an administrator, or a notice of intention to appoint an administrator is given or an administrator is appointed, over the other party;</p>
+                    <p><strong>12.2.4</strong> the other party enters into or attempts to enter into any scheme similar to or in the nature of a composition, compromise or scheme of arrangement, release or novation with any or all of its creditors;</p>
+                    <p><strong>12.2.5</strong> a petition is filed, a notice is given, a resolution is passed, an order is made or any other steps are taken, for or in connection with the winding up or deregistration of the other party; or</p>
+                    <p><strong>12.2.6</strong> the other party ceases trading or conducting its business in the ordinary course thereof.</p>
+                </div>
+                
+                <p><strong>12.3</strong> Without prejudice to any other claims that a party ("innocent party") may have under these Terms or otherwise under applicable laws, if the other party ("defaulting party") breaches any of these Terms and the breach is incapable of being remedied or, if it is capable of being remedied, the defaulting party fails to remedy such breach within 10 Business Days of being notified of such breach by the innocent party, then the innocent party shall be entitled to:</p>
+                <div class="sub-clause">
+                    <p><strong>12.3.1</strong> terminate these Terms in the case of any material breach; and/or</p>
+                    <p><strong>12.3.2</strong> apply for specific performance of the relevant term; and/or</p>
+                    <p><strong>12.3.3</strong> claim damage suffered or incurred arising out of such breach.</p>
+                </div>
+                
+                <p><strong>12.4</strong> Any provision of these Terms that expressly or by implication is intended to come into or continue in force on or after termination or expiry of these Terms shall remain in full force and effect.</p>
+                
+                <p><strong>12.5</strong> Termination or expiry of these Terms shall not affect any rights, remedies, obligations or liabilities of the parties that have accrued up to the date of termination or expiry, including the right to claim damages in respect of any breach of the Terms which existed at or before the date of termination or expiry.</p>
+                
+                <p><strong>12.6</strong> On termination for any reason:</p>
+                <div class="sub-clause">
+                    <p><strong>12.6.1</strong> all rights granted to the Customer under these Terms shall cease;</p>
+                    <p><strong>12.6.2</strong> the Customer shall cease all activities authorised by these Terms;</p>
+                    <p><strong>12.6.3</strong> the Customer shall immediately pay to the Supplier any sums due to the  Supplier under these Terms; and</p>
+                    <p><strong>12.6.4</strong> the Customer shall immediately destroy or return to the Supplier (at the  Supplier's option) all copies of the Software then in its possession, custody or  control and, in the case of destruction, certify to the Supplier that it has done so.</p>
+                </div>
+            </div>
+
+<div class="clause">
+    <span class="clause-number">13. Dispute Resolution</span>
+    <p><strong>13.1</strong> This clause is a separate, divisible Agreement from the rest of these Terms and shall:</p>
+    <div class="sub-clause">
+        <p><strong>13.1.1</strong> not be or become void, voidable or unenforceable by reason only of any alleged  misrepresentation, mistake, duress, undue influence, impossibility (initial or  supervening), illegality, immorality, absence of consensus, lack of authority or  other cause relating in substance to the rest of the Terms and not to this clause. The parties intend that all disputes, including the issues set forth above, be and  remain subject to arbitration in terms of this clause; and</p>
+        <p><strong>13.1.2</strong> remain in effect even if the Terms expire or terminate for any reason  whatsoever.</p>
+    </div>
+    <p><strong>13.2</strong> Mediation and arbitration</p>
+    <div class="sub-clause">
+        <p><strong>13.2.1</strong> Save as may be expressly provided for elsewhere in these Terms for the  resolution of particular disputes, any other dispute arising out of or in connection  with these Terms or the subject matter of these Terms, shall in the first instance,  be referred to mediation.</p>
+        <p><strong>13.2.2</strong> If the parties are unable to agree on a mediator or to resolve any dispute by way  of mediation within 15 Business Days of any party requesting in writing that the  dispute be resolved by mediation, then the dispute shall be submitted to and be  decided by arbitration as set out in this clause.</p>
+        <p><strong>13.2.3</strong> The parties shall agree on the arbitrator who shall be an attorney or advocate  on the panel of arbitrators of the Arbitration Foundation of Southern Africa  ("AFSA"). If Agreement is not reached within 10 Business Days after any party  calls in writing for such Agreement, the arbitrator shall be an attorney or  advocate nominated by the Registrar of AFSA for the time being.</p>
+        <p><strong>13.2.4</strong> The request to nominate an arbitrator shall be in writing outlining the claim and  any counterclaim of which the party concerned is aware and, if desired,  suggesting suitable nominees for appointment as arbitrator, and a copy shall be  furnished to the other party who may, within 7 Business Days, submit written comments on the request to the addressee of the request with a copy to the first  party.</p>
+        <p><strong>13.2.5</strong> The arbitration shall be held in Johannesburg and the parties shall endeavour  to ensure that it is completed within 120 Business Days after notice is given,  requiring the claim to be referred to arbitration.</p>
+        <p><strong>13.2.6</strong> The arbitration shall be governed by the Arbitration Act, 1965, or any  replacement Act and shall take place in accordance with the expedited  arbitration rules of AFSA.</p>
+        <p><strong>13.2.7</strong> The arbitrator need not strictly observe the principles of law and may decide the  matters submitted to him according to what he considers equitable in the  circumstances.</p>
+        <p><strong>13.2.8</strong> The parties irrevocably agree that the decisions and awards of the arbitrator  shall be binding on them, shall be carried into effect and may be made an order  of any court of competent jurisdiction.</p>
+        <p><strong>13.2.9</strong> Nothing contained in clause above shall prohibit a party from approaching any  court of competent jurisdiction for urgent interim relief.</p>
+    </div>
+</div>
+
+<div class="clause">
+    <span class="clause-number">14. Waiver</span>
+    <p><strong>14.1</strong> A waiver of any right or remedy is only effective if given in writing and shall not be  deemed a waiver of any subsequent right or remedy.</p>
+    <p><strong>14.2</strong> A delay or failure to exercise, or the single or partial exercise of, any right or remedy  does not waive that or any other right or remedy, nor does it prevent or restrict the  further exercise of that or any other right or remedy.</p>
+</div>
+
+<div class="clause">
+    <span class="clause-number">15. Remedies</span>
+    <p>Except as expressly provided in these Terms, the rights and remedies provided under these  Terms are in addition to, and not exclusive of, any rights or remedies provided by law.</p>
+</div>
+
+<div class="clause">
+    <span class="clause-number">16. Entire Agreement</span>
+    <p><strong>16.1</strong> These Terms, together with the Fee Agreement contain all the provisions agreed on  by the parties with regard to the subject matter of the Terms, and supersedes and  novates in its entirety any previous understandings or agreements among the parties  in respect thereof; and the parties waive the right to rely on any alleged provision not  expressly contained in these Terms or the Fee Agreement.</p>
+</div>
+
+<div class="clause">
+    <span class="clause-number">17. Variation</span>
+    <p>No variation of these Terms shall be effective unless it is in writing and signed by the parties  (or their authorised representatives).</p>
+</div>
+
+<div class="clause">
+    <span class="clause-number">18. Severance</span>
+    <p><strong>18.1</strong> If any provision or part-provision of these Terms is or becomes invalid, illegal or  unenforceable, it shall be deemed deleted, but that shall not affect the validity and  enforceability of the rest of these Terms.</p>
+    <p><strong>18.2</strong> If any provision or part-provision of these Terms is deemed deleted under clause 18.1 the parties shall negotiate in good faith to agree a replacement provision that, to the  greatest extent possible, achieves the intended commercial result of the original  provision.</p>
+</div>
+
+<div class="clause">
+    <span class="clause-number">19. Counterparts</span>
+    <p>These Terms may be executed in any number of counterparts, each of which when  executed and delivered constitutes a duplicate original, but all the counterparts together  constitute the one Agreement.</p>
+</div>
+
+<div class="clause">
+    <span class="clause-number">20. No partnership or agency</span>
+    <p><strong>20.1</strong> Nothing in these Terms is intended to, or shall be deemed to, establish any  partnership or joint venture between any of the parties, constitute any party the agent  of another party, or authorise any party to make or enter into any commitments for or  on behalf of any other party.</p>
+    <p><strong>20.2</strong> Each party confirms it is acting on its own behalf and not for the benefit of any other  person.</p>
+</div>
+
+<div class="clause">
+    <span class="clause-number">21. Force majeure</span>
+    <p>Neither party shall be liable for any delay or failure in the performance of its obligations for  so long as and to the extent that such delay or failure results from events, circumstances or  causes beyond its reasonable control. If the period of delay or non-performance continues  for 30 days, the party not affected may terminate these Terms by giving not less than 10  business days' written notice to the affected party.</p>
+</div>
+
+<div class="clause">
+    <span class="clause-number">22. Notices</span>
+    <p><strong>22.1</strong> Any notice given to a party under or in connection with these Terms shall be in writing  and shall be:</p>
+    <div class="sub-clause">
+        <p><strong>22.1.1</strong> delivered by hand or next working day delivery service at its registered office (if  a company) or its principal place of business (in any other case); or</p>
+        <p><strong>22.1.2</strong> sent by email to the following addresses (or an address substituted in writing by  the party to be served):</p>
+        <div class="sub-clause">
+            <p><strong>22.1.2.1</strong> Supplier: office@intailings.com</p>
+            <p><strong>22.1.2.2</strong> Customer: The email address provided by the Customer for purposes of  accessing the Software.</p>
+        </div>
+    </div>
+    <p><strong>22.2</strong> Any notice shall be deemed to have been received:</p>
+    <div class="sub-clause">
+        <p><strong>22.2.1</strong> if delivered by hand, at the time the notice is left at the proper address;</p>
+        <p><strong>22.2.2</strong> if sent by email, at the time of transmission, or, if this time falls outside Business  Hours in the place of receipt, when Business Hours resume.</p>
+    </div>
+</div>
+
+<div class="clause">
+    <span class="clause-number">23. Governing law and jurisdiction</span>
+    <p><strong>23.1</strong> These Terms are to be governed, interpreted and implemented in accordance with  the laws of South Africa.</p>
+    <p><strong>23.2</strong> The parties consent to the non-exclusive jurisdiction of the Courts with Jurisdiction for  any proceedings arising out of or in connection with these Terms.</p>
+    <p>These Terms have been entered into by the parties on the date on which the Customer first  accesses the Software.</p>
+</div>
+
+
+        </div>
+    </div>
+</body>
+</html>
