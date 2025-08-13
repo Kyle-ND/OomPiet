@@ -2267,8 +2267,53 @@ document.addEventListener('DOMContentLoaded', function() {
             // Forgot password handler
             document.getElementById('forgot-password').addEventListener('click', function(e) {
                 e.preventDefault();
-                showError('Password reset functionality will be implemented soon.');
+                handleForgotPassword();
             });
+
+            function handleForgotPassword() {
+                const email = document.getElementById('signin-email').value.trim();
+                
+                if (!email) {
+                    showError('Please enter your email address first');
+                    return;
+                }
+                
+                if (!isValidEmail(email)) {
+                    showError('Please enter a valid email address');
+                    return;
+                }
+                
+                showLoading();
+                clearMessages();
+                
+                fetch('/api/forgot-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email: email })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    
+                    if (data.success) {
+                        showSuccess(data.message);
+                    } else {
+                        showError(data.error || 'An error occurred while processing your request');
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    console.error('Error:', error);
+                    showError('An error occurred while processing your request');
+                });
+            }
+
+            function isValidEmail(email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return emailRegex.test(email);
+            }
         });
     </script>
 </body>

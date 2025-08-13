@@ -42,6 +42,11 @@ PAYFAST_MERCHANT_KEY = os.getenv('PAYFAST_MERCHANT_KEY')
 PAYFAST_PASSPHRASE = os.getenv('PAYFAST_PASSPHRASE', '')
 PAYFAST_SANDBOX = os.getenv('PAYFAST_SANDBOX', 'true').lower() == 'true'
 
+# Mailgun Configuration
+MAILGUN_API_KEY = os.getenv('MAILGUN_API_KEY')
+MAILGUN_DOMAIN = os.getenv('MAILGUN_DOMAIN')
+MAILGUN_FROM_EMAIL = os.getenv('MAILGUN_FROM_EMAIL', f'noreply@{MAILGUN_DOMAIN}' if MAILGUN_DOMAIN else 'noreply@example.com')
+
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
@@ -63,6 +68,7 @@ users_collection = db["users"]
 dashboard_stats_collection = db["dashboard_stats"]
 feedback_collection = db["feedback"]  # Add new collection for feedback
 sessions_collection = db["sessions"]  # New collection for session management
+password_reset_collection = db["password_reset_tokens"]  # New collection for password reset tokens
 
 # Initialize OAuth
 oauth = OAuth(app)
@@ -82,6 +88,42 @@ SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
 SMTP_USERNAME = os.getenv('SMTP_USERNAME')
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
 SMTP_FROM = os.getenv('SMTP_FROM', SMTP_USERNAME)
+
+def send_mailgun_email(to_email, subject, html_content, text_content=None):
+    """Send email using Mailgun API"""
+    try:
+        if not MAILGUN_API_KEY or not MAILGUN_DOMAIN:
+            app.logger.error("Mailgun configuration missing")
+            return False
+        
+        url = f"https://api.mailgun.net/v3/{MAILGUN_DOMAIN}/messages"
+        
+        data = {
+            "from": MAILGUN_FROM_EMAIL,
+            "to": to_email,
+            "subject": subject,
+            "html": html_content
+        }
+        
+        if text_content:
+            data["text"] = text_content
+        
+        response = requests.post(
+            url,
+            auth=("api", MAILGUN_API_KEY),
+            data=data
+        )
+        
+        if response.status_code == 200:
+            app.logger.info(f"Email sent successfully to {to_email}")
+            return True
+        else:
+            app.logger.error(f"Failed to send email: {response.status_code} - {response.text}")
+            return False
+            
+    except Exception as e:
+        app.logger.error(f"Error sending email via Mailgun: {str(e)}")
+        return False
 
 class JSONEncoder(json.JSONEncoder):
     def default(self, o):
@@ -209,6 +251,73 @@ def is_valid_email(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
 
+# Password Reset Token Management
+def generate_reset_token():
+    """Generate a secure random token for password reset"""
+    return secrets.token_urlsafe(32)
+
+def create_password_reset_token(email):
+    """Create a password reset token for a user"""
+    try:
+        # Remove any existing tokens for this email
+        password_reset_collection.delete_many({"email": email})
+        
+        # Generate new token
+        token = generate_reset_token()
+        
+        # Create token record (expires in 1 hour)
+        token_data = {
+            "email": email,
+            "token": token,
+            "created_at": datetime.utcnow(),
+            "expires_at": datetime.utcnow() + timedelta(hours=1),
+            "used": False
+        }
+        
+        password_reset_collection.insert_one(token_data)
+        return token
+        
+    except Exception as e:
+        app.logger.error(f"Error creating password reset token: {str(e)}")
+        return None
+
+def validate_reset_token(token):
+    """Validate a password reset token"""
+    try:
+        token_data = password_reset_collection.find_one({
+            "token": token,
+            "used": False,
+            "expires_at": {"$gt": datetime.utcnow()}
+        })
+        
+        return token_data
+        
+    except Exception as e:
+        app.logger.error(f"Error validating reset token: {str(e)}")
+        return None
+
+def mark_token_as_used(token):
+    """Mark a password reset token as used"""
+    try:
+        password_reset_collection.update_one(
+            {"token": token},
+            {"$set": {"used": True, "used_at": datetime.utcnow()}}
+        )
+        return True
+    except Exception as e:
+        app.logger.error(f"Error marking token as used: {str(e)}")
+        return False
+
+def cleanup_expired_reset_tokens():
+    """Clean up expired password reset tokens"""
+    try:
+        result = password_reset_collection.delete_many({
+            "expires_at": {"$lt": datetime.utcnow()}
+        })
+        app.logger.info(f"Cleaned up {result.deleted_count} expired reset tokens")
+    except Exception as e:
+        app.logger.error(f"Error cleaning up expired reset tokens: {str(e)}")
+
 PAYFAST_PASSPHRASE = 'xsdfgscdsdsa'
 IS_SANDBOX = True
 
@@ -259,6 +368,10 @@ def cleanup_expired_sessions():
             "created_at": {"$lt": cutoff_time}
         })
         app.logger.info(f"Cleaned up {result.deleted_count} expired sessions")
+        
+        # Also cleanup expired reset tokens
+        cleanup_expired_reset_tokens()
+        
     except Exception as e:
         app.logger.error(f"Error cleaning up expired sessions: {str(e)}")
 
@@ -454,6 +567,164 @@ def signin():
         app.logger.error(f"Error in signin: {str(e)}")
         return jsonify({'success': False, 'error': 'An error occurred during sign in'}), 500
 
+
+# Password Reset Endpoints
+@app.route('/api/forgot-password', methods=['POST'])
+def forgot_password():
+    try:
+        data = request.get_json()
+        email = data.get('email', '').strip().lower()
+        
+        # Validation
+        if not email:
+            return jsonify({'success': False, 'error': 'Email is required'}), 400
+        
+        if not is_valid_email(email):
+            return jsonify({'success': False, 'error': 'Invalid email format'}), 400
+        
+        # Check if user exists and uses email authentication
+        user = users_collection.find_one({'email': email})
+        if not user:
+            # Don't reveal if user exists or not for security
+            return jsonify({'success': True, 'message': 'If an account with this email exists, you will receive a password reset link.'})
+        
+        # Only allow password reset for email-authenticated users
+        if user.get('auth_method') != 'email':
+            return jsonify({'success': True, 'message': 'If an account with this email exists, you will receive a password reset link.'})
+        
+        # Generate reset token
+        reset_token = create_password_reset_token(email)
+        if not reset_token:
+            return jsonify({'success': False, 'error': 'Failed to generate reset token'}), 500
+        
+        # Create reset link
+        reset_link = url_for('reset_password_page', token=reset_token, _external=True)
+        
+        # Email content
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Password Reset</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background-color: #007bff; color: white; padding: 20px; text-align: center; }}
+                .content {{ padding: 20px; background-color: #f9f9f9; }}
+                .button {{ display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+                .footer {{ padding: 20px; text-align: center; color: #666; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Password Reset Request</h1>
+                </div>
+                <div class="content">
+                    <p>Hello,</p>
+                    <p>You have requested to reset your password. Click the button below to reset your password:</p>
+                    <p style="text-align: center;">
+                        <a href="{reset_link}" class="button">Reset Password</a>
+                    </p>
+                    <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
+                    <p style="word-break: break-all; background-color: #f0f0f0; padding: 10px; border-radius: 3px;">
+                        {reset_link}
+                    </p>
+                    <p><strong>This link will expire in 1 hour.</strong></p>
+                    <p>If you didn't request this password reset, please ignore this email.</p>
+                </div>
+                <div class="footer">
+                    <p>This is an automated message, please do not reply to this email.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        text_content = f"""
+        Password Reset Request
+        
+        Hello,
+        
+        You have requested to reset your password. Please visit the following link to reset your password:
+        
+        {reset_link}
+        
+        This link will expire in 1 hour.
+        
+        If you didn't request this password reset, please ignore this email.
+        
+        This is an automated message, please do not reply to this email.
+        """
+        
+        # Send email
+        if send_mailgun_email(email, "Password Reset Request", html_content, text_content):
+            app.logger.info(f"Password reset email sent to: {email}")
+            return jsonify({'success': True, 'message': 'If an account with this email exists, you will receive a password reset link.'})
+        else:
+            app.logger.error(f"Failed to send password reset email to: {email}")
+            return jsonify({'success': False, 'error': 'Failed to send reset email'}), 500
+        
+    except Exception as e:
+        app.logger.error(f"Error in forgot_password: {str(e)}")
+        return jsonify({'success': False, 'error': 'An error occurred while processing your request'}), 500
+
+
+@app.route('/reset-password/<token>')
+def reset_password_page(token):
+    """Display password reset form"""
+    # Validate token
+    token_data = validate_reset_token(token)
+    if not token_data:
+        return render_template('reset_password.html', error="Invalid or expired reset link")
+    
+    return render_template('reset_password.html', token=token, email=token_data['email'])
+
+
+@app.route('/api/reset-password', methods=['POST'])
+def reset_password():
+    try:
+        data = request.get_json()
+        token = data.get('token', '')
+        new_password = data.get('password', '')
+        
+        # Validation
+        if not token or not new_password:
+            return jsonify({'success': False, 'error': 'Token and password are required'}), 400
+        
+        if len(new_password) < 6:
+            return jsonify({'success': False, 'error': 'Password must be at least 6 characters long'}), 400
+        
+        # Validate token
+        token_data = validate_reset_token(token)
+        if not token_data:
+            return jsonify({'success': False, 'error': 'Invalid or expired reset token'}), 400
+        
+        # Get user
+        user = users_collection.find_one({'email': token_data['email']})
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+        
+        # Update password
+        hashed_password = generate_password_hash(new_password)
+        users_collection.update_one(
+            {'_id': user['_id']},
+            {'$set': {'password': hashed_password, 'last_login': datetime.utcnow()}}
+        )
+        
+        # Mark token as used
+        mark_token_as_used(token)
+        
+        # Remove all active sessions for this user (force re-login)
+        remove_user_session(token_data['email'])
+        
+        app.logger.info(f"Password reset successful for: {token_data['email']}")
+        return jsonify({'success': True, 'message': 'Password reset successful! You can now sign in with your new password.'})
+        
+    except Exception as e:
+        app.logger.error(f"Error in reset_password: {str(e)}")
+        return jsonify({'success': False, 'error': 'An error occurred while resetting your password'}), 500
 
 
 @app.route('/login')
