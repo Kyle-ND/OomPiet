@@ -885,6 +885,16 @@ def chat_water():
 def chat_concrete():
     return render_template('chat_concrete.html')
 
+@app.route('/chat_electrical')
+@login_required
+def chat_electrical():
+    return render_template('chat_electrical.html')
+
+@app.route('/chat_mining')
+@login_required
+def chat_mining():
+    return render_template('chat_mining.html')
+
 @app.route('/upload')
 @login_required
 def upload():
