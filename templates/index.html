@@ -528,12 +528,12 @@ body {
 }
 
 .experts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 2rem;
+    display: flex;
+    flex-wrap: wrap;               /* allow items to wrap onto multiple rows */
+    justify-content: space-evenly; /* distribute space around items in each row */
+    gap: 2rem;                     /* spacing between items */
     margin-top: 2rem;
 }
-
 .expert-card {
     background: white;
     border-radius: 16px;
@@ -569,29 +569,64 @@ body {
     color: var(--neutral-medium);
 }
 
-.coming-soon {
-    position: relative;
+/* Carousel styles */
+.public-experts-carousel {
+    /* position: relative; */
+    overflow: hidden;
+    width: 100%;
 }
 
-.coming-soon::after {
-    content: "Coming Soon";
+.public-expert-grid {
+    display: flex;
+    gap: 1.7rem; /* Restore gap between cards */
+    transition: transform 0.5s ease-in-out;
+    will-change: transform;
+}
+
+.carousel-nav {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(0, 0, 0, 0.7);
+    top: 25%;
+    transform: translateX(-30%);
+    background-color: var(--primary-blue);
     color: white;
+    border: none;
     padding: 0.5rem 1rem;
-    border-radius: 4px;
-    font-size: 0.9rem;
-    opacity: 0;
-    transition: opacity 0.2s;
+    cursor: pointer;
+    z-index: 10;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    /* width: 3rem;
+    height: 3rem; */
 }
 
-.coming-soon:hover::after {
-    opacity: 1;
+.carousel-nav.prev {
+    left: 0rem; /* Float outside the container */
 }
 
+.carousel-nav.next {
+    right: 0rem; /* Float outside the container */
+}
+
+/* Ensure responsiveness */
+@media (max-width: 768px) {
+    .carousel-nav {
+        left: -2rem;
+        right: -2rem;
+        font-size: 1.2rem;
+        width: 2.5rem;
+        height: 2.5rem;
+    }
+}
+
+/* Adjust card width to ensure only 3 cards are visible */
+.public-expert-card {
+    flex: 0 0 calc(33.333% - 1.7rem); /* Adjust width to show 3 cards */
+    max-width: calc(33.333% - 1.7rem);
+}
 /* FAQ Section */
 .faq-accordion {
     width: 100%;
@@ -667,7 +702,6 @@ body {
 
 /* Public (before-auth) expert grid styles */
 .public-experts-grid {
-    background-color: #000000;
     display: flex;
     justify-content: center;
     gap: 1.7rem;
@@ -732,6 +766,7 @@ body {
     flex-direction: column;
     align-items: stretch;
     margin-right: 2.5rem;
+    position: relative;
 }
 
 .before-auth-right {
@@ -1214,8 +1249,8 @@ body {
     }
     
     .terms-label input[type="checkbox"] {
-        min-width: 12px;
-        min-height: 12px;
+        min-width: 10px;
+        min-height: 10px;
     }
     
     .expert-areas-heading, .expert-areas-list {
@@ -1365,10 +1400,6 @@ body {
         line-height: 1.3;
     }
     
-    .faq-arrow {
-        font-size: 1rem;
-    }
-    
     .faq-answer {
         font-size: 0.75rem;
         padding: 0.5rem 0.25rem 0.8rem 0.25rem;
@@ -1423,23 +1454,6 @@ body {
     }
     
     .profile-info .profile-email {
-        font-size: 0.75rem;
-    }
-    
-    .expert-card {
-        padding: 0.6rem;
-    }
-    
-    .expert-image {
-        width: 70px;
-        height: 70px;
-    }
-    
-    .expert-name {
-        font-size: 0.95rem;
-    }
-    
-    .expert-title {
         font-size: 0.75rem;
     }
 }
@@ -1580,6 +1594,7 @@ body {
         </div>
     </div>
     <!-- Main Content -->
+     
     <div class="main-content">
         <!-- Before-auth flex layout -->
         <div id="before-auth-flex-wrapper">
@@ -1589,7 +1604,8 @@ body {
               <!-- Public Expert Grid (before-auth) -->
               <div id="public-experts-section" style="width:100%;display:flex;flex-direction:column;align-items:left;">
                 <h2 style="font-size:1.45rem;font-weight:700;color:var(--neutral-dark);margin-bottom:0.1rem;margin-top:0.1rem;">Meet our experts</h2>
-                <div class="public-experts-grid">
+                <div class="public-experts-carousel">
+                  <div class="public-expert-grid">
                  
                   <div class="public-expert-card">
                     <img src="/static/character3.png" alt="Mama Dudu" class="public-expert-image">
@@ -1626,9 +1642,9 @@ body {
                     <div class="public-expert-name">Mr Rakesh</div>
                     <div class="expert-areas-heading">Areas of expertise include:</div>
                     <ul class="expert-areas-list">
-                        <li>Renewable Energy</li>
-                        <li>Smart Grids</li>
-                        <li>Standards & Leadership</li>
+                        <li>Electrical power systems</li>
+                        <li>Integrated energy planning</li>
+                        <li>Renewables</li>
                     </ul>
                   </div>
                   <div class="public-expert-card">
@@ -1636,11 +1652,12 @@ body {
                     <div class="public-expert-name">Sis Nandi</div>
                     <div class="expert-areas-heading">Areas of expertise include:</div>
                     <ul class="expert-areas-list">
-                        <li>Metallurgy</li>
-                        <li>Process Safety</li>
-                        <li>Technical Problem-Solving</li>
+                        <li>Metallurgical processes</li>
+                        <li>Resource characterisation</li>
+                        <li>Mining Engineering</li>
                     </ul>
                   </div>
+                </div>
                 </div>
               </div>
               <!-- End Public Expert Grid -->
@@ -1809,24 +1826,24 @@ body {
                         <li>Foundations</li>
                     </ul>
                 </div>
-                <div class="public-expert-card" onclick="window.location.href='/chat_electrical'">
-                    <img src="/static/character4.png" alt="Mr Rakesh" class="public-expert-image">
+                <div class="expert-card" onclick="window.location.href='/chat_electrical'">
+                    <img src="/static/character4.png" alt="Mr Rakesh" class="expert-image">
                     <div class="public-expert-name">Mr Rakesh</div>
-                    <div class="expert-areas-heading">Areas of expertise include:</div>
-                    <ul class="expert-areas-list">
-                        <li>Renewable Energy</li>
-                        <li>Smart Grids</li>
-                        <li>Standards & Leadership</li>
+                    <div class="expert-areas-heading1"><span  style="padding-right: 1.2rem;">Areas of expertise include:</span></div>
+                    <ul class="expert-areas-list1">
+                        <li>Electrical power systems</li>
+                        <li>Integrated energy planning</li>
+                        <li>Renewables</li>
                     </ul>
                   </div>
-                  <div class="public-expert-card" onclick="window.location.href='/chat_mining'">
-                    <img src="/static/character5.png" alt="Sis Nandi" class="public-expert-image">
+                  <div class="expert-card" onclick="window.location.href='/chat_mining'">
+                    <img src="/static/character5.png" alt="Sis Nandi" class="expert-image">
                     <div class="public-expert-name">Sis Nandi</div>
-                    <div class="expert-areas-heading">Areas of expertise include:</div>
-                    <ul class="expert-areas-list">
-                        <li>Metallurgy</li>
-                        <li>Process Safety</li>
-                        <li>Technical Problem-Solving</li>
+                    <div class="expert-areas-heading"><span  style="padding-right: 1.2rem;">Areas of expertise include:</span></div>
+                    <ul class="expert-areas-list1">
+                        <li>Metallurgical processes</li>
+                        <li>Resource characterisation</li>
+                        <li>Mining Engineering</li>
                     </ul>
                   </div>
             </div>
@@ -2165,7 +2182,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 } catch (e) {
                     return timestamp;
-                }
+                               }
             }
 
             function checkLoginStatus() {
@@ -2357,5 +2374,59 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     </script>
+
+    <script>
+document.addEventListener('DOMContentLoaded', function () {
+    const grid = document.querySelector('.public-expert-grid');
+    const cards = document.querySelectorAll('.public-expert-card');
+    const prevButton = document.createElement('button');
+    const nextButton = document.createElement('button');
+    let currentIndex = 0;
+    const cardWidth = cards[0].offsetWidth + 24; // Card width + gap
+
+    // Create navigation buttons
+    prevButton.classList.add('carousel-nav', 'prev');
+    prevButton.innerHTML = '&#9664;';
+    nextButton.classList.add('carousel-nav', 'next');
+    nextButton.innerHTML = '&#9654;';
+
+    // Append buttons to the carousel container
+    const carousel = document.querySelector('.public-experts-carousel');
+    carousel.appendChild(prevButton);
+    carousel.appendChild(nextButton);
+
+    function updateCarousel() {
+        grid.style.transform = `translateX(-${currentIndex * cardWidth}px)`;
+        updateButtonState();
+    }
+
+    function updateButtonState() {
+        prevButton.disabled = currentIndex === 0;
+        nextButton.disabled = currentIndex >= cards.length - 3;
+    }
+
+    prevButton.addEventListener('click', () => {
+        if (currentIndex > 0) {
+            currentIndex--;
+            updateCarousel();
+        }
+    });
+
+    nextButton.addEventListener('click', () => {
+        if (currentIndex < cards.length - 3) {
+            currentIndex++;
+            updateCarousel();
+        }
+    });
+
+    // Ensure responsiveness
+    window.addEventListener('resize', () => {
+        grid.style.transform = `translateX(-${currentIndex * cardWidth}px)`;
+    });
+
+    // Initialize button state
+    updateButtonState();
+});
+</script>
 </body>
 </html>
