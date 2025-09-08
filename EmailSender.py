@@ -1,11 +1,13 @@
 import requests
 import json
 from typing import Optional
+import os
+from dotenv import load_dotenv
 
+load_dotenv()  # Load environment variables from a .env file if present
 # You will need to install the 'requests' library if you haven't already:
 # pip install requests
-#
-# This script no longer uses smtplib or app passwords. It uses the modern
+
 # OAuth 2.0 authentication method with the Microsoft Graph API.
 
 def send_password_reset_email(recipient_email: str, reset_link: str) -> Optional[str]:
@@ -20,12 +22,12 @@ def send_password_reset_email(recipient_email: str, reset_link: str) -> Optional
         None if the email was sent successfully, or an error message string if it failed.
     """
     
-    TENANT_ID = ""
-    CLIENT_ID = ""
-    CLIENT_SECRET = ""  
+    TENANT_ID = os.getenv("TID")  # Your Azure AD tenant ID
+    CLIENT_ID = os.getenv("CID")  # Your Azure AD client ID
+    CLIENT_SECRET = os.getenv("SID")  # Your Azure AD client secret
 
-    SENDER_EMAIL = "kyle@skxconsulting.co.za"  
-    SENDER_NAME = "My Company Kyle"
+    SENDER_EMAIL = "noreply@mentormate.co.za"  
+    SENDER_NAME = "MentorMate"
 
     # --- 1. Acquire an Access Token ---
     token_url = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token"
@@ -125,18 +127,18 @@ def send_password_reset_email(recipient_email: str, reset_link: str) -> Optional
         return error_message
 
 
-# --- Example Usage ---
-if __name__ == "__main__":
-    #TEST SCENARIO
-    # Simulate a user requesting a password reset.
+# # --- Example Usage ---
+# if __name__ == "__main__":
+#     #TEST SCENARIO
+#     # Simulate a user requesting a password reset.
 
-    user_email_to_reset = "kkndlovu9@gmail.com"
-    unique_reset_token = "a1b2c3d4e5f6g7h8i9j0" # Example token
-    password_reset_url = f"https://mycompanydomain.com/reset-password?token={unique_reset_token}"
+#     user_email_to_reset = ""
+#     unique_reset_token = "a1b2c3d4e5f6g7h8i9j0" # Example token
+#     password_reset_url = f"https://mycompanydomain.com/reset-password?token={unique_reset_token}"
 
-    # Call the function to send the email
-    result = send_password_reset_email(user_email_to_reset, password_reset_url)
+#     # Call the function to send the email
+#     result = send_password_reset_email(user_email_to_reset, password_reset_url)
 
-    if result:
-        print(f"Failed to send email. Reason: {result}")
+#     if result:
+        # print(f"Failed to send email. Reason: {result}")
 
