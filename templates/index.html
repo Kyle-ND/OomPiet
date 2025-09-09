@@ -568,59 +568,88 @@ body {
     font-size: 0.9rem;
     color: var(--neutral-medium);
 }
+       /* Carousel-specific styles */
+       .public-experts-carousel {
+            overflow: hidden;
+            width: 100%;
+            margin: 2rem auto;
+       }
 
-/* Carousel styles */
-.public-experts-carousel {
-    /* position: relative; */
-    overflow: hidden;
-    width: 100%;
-}
+       .public-experts-carousel .public-expert-grid {
+            display: flex;
+            gap: 2rem;
+            width: max-content;
+            animation: scrollCarousel 70s linear infinite; /* Continuous loop */
+       }
 
-.public-expert-grid {
-    display: flex;
-    gap: 2rem; /* Restore gap between cards */
-    transition: transform 0.5s ease-in-out;
-    will-change: transform;
-}
+       .public-experts-carousel .public-expert-card {
+            flex: 0 0 250px;
+            max-width: 250px;
+            width: 250px;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+            padding: 1.5rem 1.2rem;
+            text-align: center;
+            border: 1.5px solid #e0e0e0;
+            transition: box-shadow 0.2s, transform 0.2s;
+       }
 
-.carousel-nav {
-    position: absolute;
-    top: 25%;
-    transform: translateX(-16%);
-    background-color: var(--primary-blue);
-    color: white;
-    border: none;
-    padding: 0.5rem 1rem;
-    cursor: pointer;
-    z-index: 10;
-    border-radius: 50%;
-    font-size: 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    /* width: 3rem;
-    height: 3rem; */
-}
+       .public-experts-carousel .public-expert-card:hover {
+            box-shadow: 0 8px 24px rgba(29,120,163,0.10);
+            transform: translateY(-4px);
+       }
 
-.carousel-nav.prev {
-    left: 0rem; /* Float outside the container */
-}
+       .public-expert-image {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 1rem;
+       }
 
-.carousel-nav.next {
-    right: 0rem; /* Float outside the container */
-}
+       .public-expert-name {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 0.3rem;
+       }
 
-/* Ensure responsiveness */
-@media (max-width: 768px) {
-    .carousel-nav {
-        left: -2rem;
-        right: -2rem;
-        font-size: 1.2rem;
-        width: 2.5rem;
-        height: 2.5rem;
-    }
-}
+       .expert-areas-heading {
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin: 0.5rem 0;
+       }
+
+       .expert-areas-list {
+            text-align: left;
+            display: inline-block;
+            margin: 0 auto;
+            padding-left: 1.2em;
+            font-size: 0.85rem;
+            color: #555;
+       }
+
+       /* Keyframes for seamless infinite loop */
+       @keyframes scrollCarousel {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-100%); }
+       }
+
+       /* Responsive: stack cards and disable animation */
+       @media (max-width: 768px) {
+           .public-experts-carousel .public-expert-grid {
+               display: block;
+               animation: none;
+           }
+
+           .public-experts-carousel .public-expert-card {
+               max-width: 100%;
+               width: 100%;
+               flex: 1 1 auto;
+               margin-bottom: 1.5rem;
+           }
+       }
 
 /* Adjust card width to ensure only 3 cards are visible */
 .public-expert-card {
@@ -2374,49 +2403,74 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     </script>
+    <script>
+        const grid = document.getElementById('expertGrid');
+        let scrollSpeed = 1; // pixels per frame
+
+        function animate() {
+            grid.scrollLeft += scrollSpeed;
+            if (grid.scrollLeft >= grid.scrollWidth - grid.clientWidth) {
+                grid.scrollLeft = 0;
+            }
+            requestAnimationFrame(animate);
+        }
+
+        // Clone first card to the end dynamically to ensure smoothness
+        const cards = grid.children;
+        for (let i = 0; i < cards.length; i++) {
+            const clone = cards[i].cloneNode(true);
+            grid.appendChild(clone);
+        }
+
+        animate();
+    </script>
 
     <script>
 document.addEventListener('DOMContentLoaded', function () {
     const grid = document.querySelector('.public-expert-grid');
-    const cards = document.querySelectorAll('.public-expert-card');
-    const prevButton = document.createElement('button');
-    const nextButton = document.createElement('button');
+    const cards = Array.from(document.querySelectorAll('.public-expert-card'));
+
     let currentIndex = 0;
     const cardWidth = cards[0].offsetWidth + 24; // Card width + gap
 
-    // Create navigation buttons
-    prevButton.classList.add('carousel-nav', 'prev');
-    prevButton.innerHTML = '&#9664;';
-    nextButton.classList.add('carousel-nav', 'next');
-    nextButton.innerHTML = '&#9654;';
+    // Clone cards to create an infinite loop effect
+    cards.forEach(card => {
+        const clone = card.cloneNode(true);
+        grid.appendChild(clone);
+    });
+
+
 
     // Append buttons to the carousel container
     const carousel = document.querySelector('.public-experts-carousel');
-    carousel.appendChild(prevButton);
-    carousel.appendChild(nextButton);
 
     function updateCarousel() {
+        grid.style.transition = 'transform 0.5s ease';
         grid.style.transform = `translateX(-${currentIndex * cardWidth}px)`;
-        updateButtonState();
     }
 
-    function updateButtonState() {
-        prevButton.disabled = currentIndex === 0;
-        nextButton.disabled = currentIndex >= cards.length - 3;
+    function resetCarousel() {
+        grid.style.transition = 'none';
+        if (currentIndex === cards.length) {
+            currentIndex = 0;
+            grid.style.transform = `translateX(0px)`;
+        } else if (currentIndex < 0) {
+            currentIndex = cards.length - 1;
+            grid.style.transform = `translateX(-${currentIndex * cardWidth}px)`;
+        }
     }
+
 
     prevButton.addEventListener('click', () => {
-        if (currentIndex > 0) {
-            currentIndex--;
-            updateCarousel();
-        }
+        currentIndex--;
+        updateCarousel();
+        setTimeout(resetCarousel, 500);
     });
 
     nextButton.addEventListener('click', () => {
-        if (currentIndex < cards.length - 3) {
-            currentIndex++;
-            updateCarousel();
-        }
+        currentIndex++;
+        updateCarousel();
+        setTimeout(resetCarousel, 500);
     });
 
     // Ensure responsiveness
@@ -2424,8 +2478,6 @@ document.addEventListener('DOMContentLoaded', function () {
         grid.style.transform = `translateX(-${currentIndex * cardWidth}px)`;
     });
 
-    // Initialize button state
-    updateButtonState();
 });
 </script>
 </body>
