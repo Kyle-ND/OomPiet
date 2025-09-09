@@ -13,9 +13,6 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 import json
 from flask_cors import CORS
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from urllib.parse import urlencode
 import requests
 import secrets
@@ -23,6 +20,7 @@ import uuid
 import hashlib
 from collections import OrderedDict
 from urllib.parse import parse_qsl
+from EmailSender import send_password_reset_email
 
 # Load environment variables
 load_dotenv()
@@ -41,12 +39,6 @@ PAYFAST_MERCHANT_ID = os.getenv('PAYFAST_MERCHANT_ID')
 PAYFAST_MERCHANT_KEY = os.getenv('PAYFAST_MERCHANT_KEY')
 PAYFAST_PASSPHRASE = os.getenv('PAYFAST_PASSPHRASE', '')
 PAYFAST_SANDBOX = os.getenv('PAYFAST_SANDBOX', 'true').lower() == 'true'
-
-# Mailgun Configuration
-MAILGUN_API_KEY = os.getenv('MAILGUN_API_KEY')
-MAILGUN_DOMAIN = os.getenv('MAILGUN_DOMAIN')
-MAILGUN_FROM_EMAIL = os.getenv('MAILGUN_FROM_EMAIL', f'noreply@{MAILGUN_DOMAIN}' if MAILGUN_DOMAIN else 'noreply@example.com')
-
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
@@ -88,42 +80,6 @@ SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
 SMTP_USERNAME = os.getenv('SMTP_USERNAME')
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
 SMTP_FROM = os.getenv('SMTP_FROM', SMTP_USERNAME)
-
-def send_mailgun_email(to_email, subject, html_content, text_content=None):
-    """Send email using Mailgun API"""
-    try:
-        if not MAILGUN_API_KEY or not MAILGUN_DOMAIN:
-            app.logger.error("Mailgun configuration missing")
-            return False
-        
-        url = f"https://api.mailgun.net/v3/{MAILGUN_DOMAIN}/messages"
-        
-        data = {
-            "from": MAILGUN_FROM_EMAIL,
-            "to": to_email,
-            "subject": subject,
-            "html": html_content
-        }
-        
-        if text_content:
-            data["text"] = text_content
-        
-        response = requests.post(
-            url,
-            auth=("api", MAILGUN_API_KEY),
-            data=data
-        )
-        
-        if response.status_code == 200:
-            app.logger.info(f"Email sent successfully to {to_email}")
-            return True
-        else:
-            app.logger.error(f"Failed to send email: {response.status_code} - {response.text}")
-            return False
-            
-    except Exception as e:
-        app.logger.error(f"Error sending email via Mailgun: {str(e)}")
-        return False
 
 class JSONEncoder(json.JSONEncoder):
     def default(self, o):
@@ -600,70 +556,14 @@ def forgot_password():
         # Create reset link
         reset_link = url_for('reset_password_page', token=reset_token, _external=True)
         
-        # Email content
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>Password Reset</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .header {{ background-color: #007bff; color: white; padding: 20px; text-align: center; }}
-                .content {{ padding: 20px; background-color: #f9f9f9; }}
-                .button {{ display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
-                .footer {{ padding: 20px; text-align: center; color: #666; font-size: 12px; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>Password Reset Request</h1>
-                </div>
-                <div class="content">
-                    <p>Hello,</p>
-                    <p>You have requested to reset your password. Click the button below to reset your password:</p>
-                    <p style="text-align: center;">
-                        <a href="{reset_link}" class="button">Reset Password</a>
-                    </p>
-                    <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
-                    <p style="word-break: break-all; background-color: #f0f0f0; padding: 10px; border-radius: 3px;">
-                        {reset_link}
-                    </p>
-                    <p><strong>This link will expire in 1 hour.</strong></p>
-                    <p>If you didn't request this password reset, please ignore this email.</p>
-                </div>
-                <div class="footer">
-                    <p>This is an automated message, please do not reply to this email.</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
+        # Send email using the new EmailSender package
+        error_message = send_password_reset_email(email, reset_link)
         
-        text_content = f"""
-        Password Reset Request
-        
-        Hello,
-        
-        You have requested to reset your password. Please visit the following link to reset your password:
-        
-        {reset_link}
-        
-        This link will expire in 1 hour.
-        
-        If you didn't request this password reset, please ignore this email.
-        
-        This is an automated message, please do not reply to this email.
-        """
-        
-        # Send email
-        if send_mailgun_email(email, "Password Reset Request", html_content, text_content):
+        if error_message is None:
             app.logger.info(f"Password reset email sent to: {email}")
             return jsonify({'success': True, 'message': 'If an account with this email exists, you will receive a password reset link.'})
         else:
-            app.logger.error(f"Failed to send password reset email to: {email}")
+            app.logger.error(f"Failed to send password reset email to: {email}. Reason: {error_message}")
             return jsonify({'success': False, 'error': 'Failed to send reset email'}), 500
         
     except Exception as e:
