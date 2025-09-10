@@ -579,7 +579,7 @@ body {
             display: flex;
             gap: 2rem;
             width: max-content;
-            animation: scrollCarousel 70s linear infinite; /* Continuous loop */
+            animation: scrollCarousel 150s linear infinite; /* Continuous loop */
        }
 
        .public-experts-carousel .public-expert-card {
@@ -1656,7 +1656,7 @@ body {
               <div id="public-experts-section" style="width:100%;display:flex;flex-direction:column;align-items:left;">
                 <h2 style="font-size:1.45rem;font-weight:700;color:var(--neutral-dark);margin-bottom:0.1rem;margin-top:0.1rem;">Meet our experts</h2>
                 <div class="public-experts-carousel">
-                  <div class="public-expert-grid">
+                  <div class="public-expert-grid" id="publicExpertGrid">
                  
                   <div class="public-expert-card">
                     <img src="/static/character3.png" alt="Mama Dudu" class="public-expert-image">
@@ -2425,29 +2425,82 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     </script>
-    <script>
-        const grid = document.getElementById('expertGrid');
-        let scrollSpeed = 1; // pixels per frame
+<script>
+const grid = document.getElementById('publicExpertGrid');
+let scrollSpeed = 0.5; // pixels per frame
+let animationId;
+let originalCards = [];
+let isLargeScreen = false;
 
-        function animate() {
-            grid.scrollLeft += scrollSpeed;
-            if (grid.scrollLeft >= grid.scrollWidth - grid.clientWidth) {
-                grid.scrollLeft = 0;
-            }
-            requestAnimationFrame(animate);
+// Store original cards on first load
+function storeOriginalCards() {
+    if (originalCards.length === 0) {
+        originalCards = Array.from(grid.children);
+    }
+}
+
+function setupCarousel() {
+    const currentIsLargeScreen = window.innerWidth > 768;
+    
+    // If screen size category hasn't changed, do nothing
+    if (currentIsLargeScreen === isLargeScreen) {
+        return;
+    }
+    
+    isLargeScreen = currentIsLargeScreen;
+    
+    // Stop current animation
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+    }
+    
+    // Clear grid and reset scroll position
+    grid.innerHTML = '';
+    grid.scrollLeft = 0;
+    
+    // Add original cards back
+    originalCards.forEach(card => {
+        grid.appendChild(card.cloneNode(true));
+    });
+    
+    // Duplicate for large screens only
+    if (isLargeScreen) {
+        const cards = Array.from(grid.children);
+        for (let j = 0; j < 5; j++) { // duplicate 5 times
+            cards.forEach(card => {
+                const clone = card.cloneNode(true);
+                grid.appendChild(clone);
+            });
         }
+    }
+    
+    // Start animation
+    animate();
+}
 
-        // Clone first card to the end dynamically to ensure smoothness
-        const cards = grid.children;
-        for (let i = 0; i < cards.length; i++) {
-            const clone = cards[i].cloneNode(true);
-            grid.appendChild(clone);
+function animate() {
+    if (isLargeScreen) {
+        grid.scrollLeft += scrollSpeed;
+        if (grid.scrollLeft >= grid.scrollWidth - grid.clientWidth) {
+            grid.scrollLeft = 0;
         }
+    }
+    animationId = requestAnimationFrame(animate);
+}
 
-        animate();
-    </script>
+// Initialize
+storeOriginalCards();
+setupCarousel();
 
-    <script>
+// Listen for window resize
+let resizeTimeout;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(setupCarousel, 100); // Debounce resize events
+});
+</script>
+
+    <!-- <script>
 document.addEventListener('DOMContentLoaded', function () {
     const grid = document.querySelector('.public-expert-grid');
     const cards = Array.from(document.querySelectorAll('.public-expert-card'));
@@ -2501,6 +2554,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
 });
-</script>
+</script> -->
 </body>
 </html>
