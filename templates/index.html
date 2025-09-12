@@ -891,6 +891,8 @@ body {
         flex-direction: column;
         align-items: center;
         gap: 1.2rem;
+        animation: none;
+
     }
     
     .public-experts-carousel .public-expert-card{
@@ -983,7 +985,7 @@ body {
     .public-experts-carousel .public-expert-card {
         padding: 1.2rem;
         width: 95vw;
-        max-width: 320px;
+        max-width: 760px;
     }
     
     .faq-question {
@@ -1079,7 +1081,7 @@ body {
 
     .public-experts-carousel .public-expert-card{
         width: 95vw;
-        max-width: 300px;
+        max-width: 100%;
         padding: 1rem;
     }
     
@@ -1389,8 +1391,8 @@ body {
     }*/
     
     .public-experts-carousel .public-expert-card{
-        width: 99vw;
-        max-width: 97vw;
+        /* width: 99vw; */
+        max-width: 600px;
         padding: 0.6rem;
     } 
     
@@ -1890,7 +1892,7 @@ body {
                   <div class="expert-card" onclick="window.location.href='/chat_mining'">
                     <img src="/static/character5.png" alt="Sis Nandi" class="expert-image">
                     <div class="public-expert-name">Sis Nandi</div>
-                    <div class="expert-areas-heading"><span  style="padding-right: 1.2rem;">Areas of expertise include:</span></div>
+                    <div class="expert-areas-heading1"><span  style="padding-right: 1.2rem;">Areas of expertise include:</span></div>
                     <ul class="expert-areas-list1">
                         <li>Metallurgical processes</li>
                         <li>Resource characterisation</li>
@@ -2440,7 +2442,7 @@ function storeOriginalCards() {
 }
 
 function setupCarousel() {
-    const currentIsLargeScreen = window.innerWidth > 768;
+    const currentIsLargeScreen = window.innerWidth > 900;
     
     // If screen size category hasn't changed, do nothing
     if (currentIsLargeScreen === isLargeScreen) {
