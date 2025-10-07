@@ -20,7 +20,7 @@ import uuid
 import hashlib
 from collections import OrderedDict
 from urllib.parse import parse_qsl
-from EmailSender import send_password_reset_email
+from Utils.EmailSender import send_password_reset_email
 
 # Load environment variables
 load_dotenv()
