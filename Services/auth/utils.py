@@ -1,4 +1,4 @@
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from functools import wraps
 import hashlib
 import os
@@ -42,8 +42,8 @@ def create_user_session(user_email, session_id=None):
     session_data = {
         "session_id": session_id,
         "user_email": user_email,
-        "created_at": datetime.utcnow(),
-        "last_activity": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
+        "last_activity": datetime.now(timezone.utc),
         "user_agent": request.headers.get('User-Agent', ''),
         "ip_address": request.remote_addr
     }
@@ -64,7 +64,7 @@ def get_active_session_info(user_email):
     
     if session_data:
         # Check if session is expired
-        if datetime.utcnow() - session_data["created_at"] > datetime.timedelta(hours=24):
+        if datetime.now(timezone.utc) - session_data["created_at"] > datetime.timedelta(hours=24):
             current_app.logger.info(f"Session expired for user: {user_email}")
             sessions_collection.delete_one({"_id": session_data["_id"]})
             return None
@@ -94,14 +94,30 @@ def validate_session(session_id, user_email):
         return False
     
     # Check if session is expired (24 hours)
-    if datetime.utcnow() - session_data["created_at"] > datetime.timedelta(hours=24):
+    created_at = session_data["created_at"]
+    # If created_at is a string, parse it
+    if isinstance(created_at, str):
+        try:
+            # Try ISO format first
+            created_at = datetime.fromisoformat(created_at)
+            # If naive, set UTC
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+        except Exception:
+            # Fallback: try parsing with strptime
+            created_at = datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%S.%fZ")
+            created_at = created_at.replace(tzinfo=timezone.utc)
+    elif created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+
+    if datetime.now(timezone.utc) - created_at > timedelta(hours=24):
         sessions_collection.delete_one({"_id": session_data["_id"]})
         return False
     
     # Update last activity
     sessions_collection.update_one(
         {"_id": session_data["_id"]},
-        {"$set": {"last_activity": datetime.utcnow()}}
+        {"$set": {"last_activity": datetime.now(timezone.utc)}}
     )
     
     return True
@@ -150,8 +166,8 @@ def create_password_reset_token(email):
         token_data = {
             "email": email,
             "token": token,
-            "created_at": datetime.utcnow(),
-            "expires_at": datetime.utcnow() + datetime.timedelta(hours=1),
+            "created_at": datetime.now(timezone.utc),
+            "expires_at": datetime.now(timezone.utc) + datetime.timedelta(hours=1),
             "used": False
         }
         
@@ -169,7 +185,7 @@ def validate_reset_token(token):
         token_data = password_reset_collection.find_one({
             "token": token,
             "used": False,
-            "expires_at": {"$gt": datetime.utcnow()}
+            "expires_at": {"$gt": datetime.now(timezone.utc)}
         })
         
         return token_data
@@ -185,7 +201,7 @@ def mark_token_as_used(token):
     try:
         password_reset_collection.update_one(
             {"token": token},
-            {"$set": {"used": True, "used_at": datetime.utcnow()}}
+            {"$set": {"used": True, "used_at": datetime.now(timezone.utc)}}
         )
         return True
     except Exception as e:
@@ -197,7 +213,7 @@ def cleanup_expired_reset_tokens():
     """Clean up expired password reset tokens"""
     try:
         result = password_reset_collection.delete_many({
-            "expires_at": {"$lt": datetime.utcnow()}
+            "expires_at": {"$lt": datetime.now(timezone.utc)}
         })
         current_app.logger.info(f"Cleaned up {result.deleted_count} expired reset tokens")
     except Exception as e:
@@ -246,7 +262,7 @@ def verify_payfast_itn(data):
 def cleanup_expired_sessions():
     """Clean up expired sessions (older than 24 hours)"""
     try:
-        cutoff_time = datetime.utcnow() - datetime.timedelta(hours=24)
+        cutoff_time = datetime.now(timezone.utc) - datetime.timedelta(hours=24)
         result = sessions_collection.delete_many({
             "created_at": {"$lt": cutoff_time}
         })
@@ -271,7 +287,7 @@ def schedule_cleanup():
                 cleanup_expired_sessions()
                 time.sleep(3600)  # Run every hour
             except Exception as e:
-                current_app.logger.error(f"Error in cleanup worker: {str(e)}")
+                # current_app.logger.error(f"Error in cleanup worker: {str(e)}")
                 time.sleep(3600)  # Continue trying every hour
     
     # Start cleanup thread

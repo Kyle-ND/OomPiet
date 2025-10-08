@@ -1,5 +1,5 @@
 from flask import current_app, make_response, redirect, request, jsonify , session, url_for
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import jsonify, request
 from werkzeug.security import check_password_hash,generate_password_hash
 from Utils.EmailSender import send_password_reset_email
@@ -20,7 +20,7 @@ def handle_signup(users_collection , initialize_new_user_dashboard_stats_func):
             return jsonify({'success': False, 'error': 'Invalid email format'}), 400
 
         if len(password) < 6:
-            return jsonify({'success': False, 'error': 'Password must be at least 6 characters long'}), 400
+            return jsonify({'success': False, 'error': 'Password must be at least 6 characters long'}),
 
         # Check if user already exists
         existing_user = users_collection.find_one({'email': email})
@@ -35,8 +35,8 @@ def handle_signup(users_collection , initialize_new_user_dashboard_stats_func):
             'name': email.split('@')[0].title(),
             'picture': '/static/default-profile.png',
             'auth_method': 'email',
-            'created_at': datetime.utcnow(),
-            'last_login': datetime.utcnow(),
+            'created_at': datetime.now(timezone.utc),
+            'last_login': datetime.now(timezone.utc),
             'verified': True
         }
         users_collection.insert_one(user_data)
@@ -53,6 +53,7 @@ def handle_signup(users_collection , initialize_new_user_dashboard_stats_func):
 
 
 def handle_signin(users_collection):
+
     try:
         data = request.get_json()
         email = data.get('email', '').strip().lower()
@@ -76,15 +77,15 @@ def handle_signin(users_collection):
             return jsonify({'success': False, 'error': 'Invalid email or password'}), 401
 
         # Check if user already has an active session
-        current_app.info(f"Checking for active session for user: {email}")
+        current_app.logger.info(f"Checking for active session for user: {email}")
         active_session = AuthUtils.get_active_session_info(email)
-        current_app.info(f"Active session found: {active_session is not None}")
-        
+        current_app.logger.info(f"Active session found: {active_session is not None}")
+
         if active_session:
-            current_app.info(f"Session conflict detected for user: {email}")
+            current_app.logger.info(f"Session conflict detected for user: {email}")
             # Return session conflict information
             return jsonify({
-                'success': False, 
+                'success': False,
                 'error': 'session_conflict',
                 'message': 'This account is already active on another device. Do you want to continue and log out the other session?',
                 'session_info': {
@@ -95,12 +96,23 @@ def handle_signin(users_collection):
             }), 409
 
         # If no session conflict, continue with successful login
-        # Add your success login logic here
-        return jsonify({'success': True, 'message': 'Login successful'}), 200
+        # Set session data
+        session.permanent = True
+        session['user'] = {
+            'email': user['email'],
+            'name': user.get('name', ''),
+            'picture': user.get('picture', '/static/default-profile.png'),
+            'auth_method': user.get('auth_method', 'email'),
+            'premium': user.get('premium', False)
+        }
+        session['session_id'] = AuthUtils.create_user_session(email)
+
+        current_app.logger.info(f"Login successful for user: {email}")
+        return jsonify({'success': True, 'message': 'Login successful', 'user': session['user']}), 200
 
     except Exception as e:
-        current_app.error(f"Signin error: {str(e)}")
-        return jsonify({'success': False, 'error': 'An internal server error occurred'}), 500
+        current_app.logger.error(f"Signin error: {str(e)}")
+        return jsonify({'success': False, 'error': f'An internal server error occurred: {str(e)}'}), 500
     
 
 def handle_recover_password(users_collection):
@@ -248,7 +260,7 @@ def handle_feed_back(feedback_collection, dashboard_stats_collection):
             "query" :data.get('query', '').strip(),  # Add query field with empty string as default
             "is_positive": data.get('is_positive'),
             "user_email": user.get('email'),
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(timezone.utc),
             "user_agent": request.headers.get('User-Agent')
         }
         
@@ -264,7 +276,7 @@ def handle_feed_back(feedback_collection, dashboard_stats_collection):
             {"user_email": user.get('email')},
             {
                 "$inc": {"total_feedback": 1},
-                "$set": {"last_active": datetime.utcnow()}
+                "$set": {"last_active": datetime.now(timezone.utc)}
             }
         )
         
@@ -302,7 +314,7 @@ def handle_reset_password(users_collection):
         hashed_password = generate_password_hash(new_password)
         users_collection.update_one(
             {'_id': user['_id']},
-            {'$set': {'password': hashed_password, 'last_login': datetime.utcnow()}}
+            {'$set': {'password': hashed_password, 'last_login': datetime.now(timezone.utc)}}
         )
         
         # Mark token as used
@@ -362,7 +374,7 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
             "name": user_info.get("name", "User"),
             "email": user_info["email"],
             "picture": user_info.get("picture", "/static/default-profile.png"),
-            "last_login": datetime.utcnow(),
+            "last_login": datetime.now(timezone.utc),
             "auth_method": "google"  # Add auth method
         }
 
