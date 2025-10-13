@@ -37,7 +37,7 @@ API_URL = os.getenv('API_URL')
 API_KEY = os.getenv('API_KEY')
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
-SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key')  # Default for development
+SECRET_KEY = os.getenv('SECRET_KEY')  # Default for development
 MONGO_URI = os.getenv('MONGO_URI')
 MODE = os.getenv('MODE', 'development')
 
@@ -525,4 +525,4 @@ def unsubscribe():
 if __name__ == '__main__':
     # Create static folder if it doesn't exist
     
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)

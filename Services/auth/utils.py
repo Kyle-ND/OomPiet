@@ -11,9 +11,9 @@ from flask import current_app, redirect, request, session, url_for
 
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
-SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key')  # Default for development
+SECRET_KEY = os.getenv('SECRET_KEY')  # Default for development
 MONGO_URI = os.getenv('MONGO_URI')
-PAYFAST_PASSPHRASE = 'xsdfgscdsdsa'
+PAYFAST_PASSPHRASE = os.getenv('PAYFAST_PASSPHRASE')
 IS_SANDBOX = True
 
 client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, connectTimeoutMS=5000)
