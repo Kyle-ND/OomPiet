@@ -1,6 +1,7 @@
 from flask import current_app, make_response, redirect, request, jsonify , session, url_for
 from datetime import datetime, timedelta, timezone
 from flask import jsonify, request
+import requests
 from werkzeug.security import check_password_hash,generate_password_hash
 from Utils.EmailSender import send_password_reset_email
 from . import utils as AuthUtils
@@ -457,3 +458,33 @@ def handle_invalidate_session():
     except Exception as e:
         current_app.logger.error(f"Error invalidating session: {str(e)}")
         return jsonify({'success': False, 'error': 'Failed to invalidate session'}), 500
+    
+
+def handle_unsubscription(users_collection, PAYFAST_SANDBOX):
+    user = session.get('user')
+    if not user:
+        return jsonify({'success': False, 'error': 'Not logged in'}), 401
+
+    db_user = users_collection.find_one({'email': user['email']})
+    pf_subscription_id = db_user.get('payfast_subscription_id')
+    if not pf_subscription_id:
+        return jsonify({'success': False, 'error': 'No active subscription'}), 400
+
+    # Use sandbox or production URL based on environment
+    if PAYFAST_SANDBOX:
+        cancel_url = 'https://sandbox.payfast.co.za/eng/query/subscription/cancel'
+    else:
+        cancel_url = 'https://www.payfast.co.za/eng/query/subscription/cancel'
+    
+    payload = {
+          'merchant_id': '25296103',
+        'merchant_key': 'rbn0vhdzshrbi',
+        'subscription_id': pf_subscription_id
+    }
+    response = requests.post(cancel_url, data=payload)
+    if response.status_code == 200 and 'true' in response.text.lower():
+        users_collection.update_one({'email': user['email']}, {'$unset': {'payfast_subscription_id': ""}})
+        users_collection.update_one({'email': user['email']}, {'$set': {'premium': False}})
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to cancel subscription'}), 500
