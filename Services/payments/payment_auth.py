@@ -1,8 +1,12 @@
 from datetime import timezone
 from flask import current_app, flash, redirect, render_template, request, session, url_for
+import os
 
 from datetime import datetime, timedelta
 import hashlib
+
+merchant_id = os.getenv('PAYFAST_MERCHANT_ID')
+merchant_key = os.getenv('PAYFAST_MERCHANT_KEY')
 
 
 def payment_op():
@@ -27,8 +31,8 @@ def payment_op():
     merchant_ref = f"{user.get('email', '')}-{plan}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
     
     payfast_data = {
-            'merchant_id': '25296103',
-        'merchant_key': 'rbn0vhdzshrbi',
+            'merchant_id': merchant_id,
+        'merchant_key': merchant_key,
         'amount': amount,
         'item_name': item_name,
         'name_first': user.get('name', ''),

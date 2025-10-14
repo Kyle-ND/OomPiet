@@ -26,6 +26,14 @@ def send_password_reset_email(recipient_email: str, reset_link: str) -> Optional
     CLIENT_ID = os.getenv("CID")  # Your Azure AD client ID
     CLIENT_SECRET = os.getenv("SID")  # Your Azure AD client secret
 
+    print(f"DEBUG - TENANT_ID: {TENANT_ID}")
+    print(f"DEBUG - CLIENT_ID: {CLIENT_ID}")
+    print(f"DEBUG - CLIENT_SECRET: {'***' if CLIENT_SECRET else None}")
+    
+    if not all([TENANT_ID, CLIENT_ID, CLIENT_SECRET]):
+        return "Environment variables not loaded properly"
+    
+
     SENDER_EMAIL = "noreply@mentormate.co.za"  
     SENDER_NAME = "MentorMate"
 
@@ -129,16 +137,16 @@ def send_password_reset_email(recipient_email: str, reset_link: str) -> Optional
 
 # # --- Example Usage ---
 # if __name__ == "__main__":
-#     #TEST SCENARIO
-#     # Simulate a user requesting a password reset.
+    #TEST SCENARIO
+    # Simulate a user requesting a password reset.
 
-#     user_email_to_reset = ""
-#     unique_reset_token = "a1b2c3d4e5f6g7h8i9j0" # Example token
-#     password_reset_url = f"https://mycompanydomain.com/reset-password?token={unique_reset_token}"
+    # user_email_to_reset = ""
+    # unique_reset_token = "a1b2c3d4e5f6g7h8i9j0" # Example token
+    # password_reset_url = f"https://mycompanydomain.com/reset-password?token={unique_reset_token}"
 
-#     # Call the function to send the email
-#     result = send_password_reset_email(user_email_to_reset, password_reset_url)
+    # Call the function to send the email
+    # result = send_password_reset_email(user_email_to_reset, password_reset_url)
 
-#     if result:
-        # print(f"Failed to send email. Reason: {result}")
+    # if result:
+    #     print(f"Failed to send email. Reason: {result}")
 
