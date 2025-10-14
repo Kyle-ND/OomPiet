@@ -1,10 +1,15 @@
+import os
 from flask import current_app, make_response, redirect, request, jsonify , session, url_for
 from datetime import datetime, timedelta, timezone
-from flask import jsonify, request
 import requests
 from werkzeug.security import check_password_hash,generate_password_hash
 from Utils.EmailSender import send_password_reset_email
 from . import utils as AuthUtils
+
+# These variables will be initialized from environment variables loaded in main.py
+TENANT_ID = os.getenv("TID")  # Your Azure AD tenant ID
+CLIENT_ID = os.getenv("CID")  # Your Azure AD client ID
+CLIENT_SECRET = os.getenv("SID")  # Your Azure AD client secret
 
 def handle_signup(users_collection , initialize_new_user_dashboard_stats_func):
     try:
@@ -119,6 +124,7 @@ def handle_signin(users_collection):
 def handle_recover_password(users_collection):
     try:
         data = request.get_json()
+
         email = data.get('email', '').strip().lower()
         
         # Validation
@@ -129,8 +135,12 @@ def handle_recover_password(users_collection):
         if not AuthUtils.is_valid_email(email):
             return jsonify({'success': False, 'error': 'Invalid email format'}), 400
         
+
+        print("Checking if user exists...")
+        
         # Check if user exists and uses email authentication
         user = users_collection.find_one({'email': email})
+
         if not user:
             # Don't reveal if user exists or not for security
             return jsonify({'success': True, 'message': 'If an account with this email exists, you will receive a password reset link.'})
@@ -141,21 +151,29 @@ def handle_recover_password(users_collection):
         
         # Generate reset token
         reset_token = AuthUtils.create_password_reset_token(email) #create_password_reset_token(email)
+
         if not reset_token:
             return jsonify({'success': False, 'error': 'Failed to generate reset token'}), 500
         
         # Create reset link
         reset_link = url_for('reset_password_page', token=reset_token, _external=True)
+
+        # Log the reset link being generated
+        current_app.logger.info(f"Generated reset link: {reset_link}")
         
         # Send email using the new EmailSender package
         error_message = send_password_reset_email(email, reset_link)
+
+        # Log what the email sender returned
+        current_app.logger.info(f"Email sender returned: {error_message if error_message else 'SUCCESS'}")
         
         if error_message is None:
             current_app.logger.info(f"Password reset email sent to: {email}")
             return jsonify({'success': True, 'message': 'If an account with this email exists, you will receive a password reset link.'})
         else:
-            current_app.logger.error(f"Failed to send password reset email to: {email}. Reason: {error_message}")
-            return jsonify({'success': False, 'error': 'Failed to send reset email'}), 500
+            current_app.logger.error(f"Failed to send password reset email: {error_message}")
+            return jsonify({'success': False, 'error': 'Failed to send password reset email. Please try again later.'}), 500
+          
         
     except Exception as e:
         current_app.logger.error(f"Error in forgot_password: {str(e)}")

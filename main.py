@@ -1,26 +1,18 @@
-import re
 from datetime import timezone,timedelta,datetime
 from bson import ObjectId
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory, make_response, flash
+from flask import Flask, render_template, jsonify, redirect, url_for, session, send_from_directory, flash
 from authlib.integrations.flask_client import OAuth
 import os
 import logging
 from dotenv import load_dotenv
 from pymongo import MongoClient
-import urllib
 from werkzeug.middleware.proxy_fix import ProxyFix
-from functools import wraps
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash
 import json
 from flask_cors import CORS
-from urllib.parse import urlencode
-import requests
-import secrets
-import uuid
-import hashlib
-from collections import OrderedDict
-from urllib.parse import parse_qsl
-from Utils.EmailSender import send_password_reset_email
+
+# Load environment variables
+load_dotenv()
 
 #Auth Utils
 from Services.auth import utils as AuthUtils
@@ -29,8 +21,6 @@ from Services.auth.utils import login_required
 from Services.auth import user_auth as UserAuth
 from Services.payments import payment_auth as PayAuth
 
-# Load environment variables
-load_dotenv()
 
 # Configuration
 API_URL = os.getenv('API_URL')
@@ -49,7 +39,7 @@ PAYFAST_SANDBOX = os.getenv('PAYFAST_SANDBOX', 'true').lower() == 'true'
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
-app.logger.warning(f"PAYFAST_PASSPHRASE: '{PAYFAST_PASSPHRASE}'")
+
 
 app.secret_key = SECRET_KEY
 app.config['SESSION_COOKIE_NAME'] = 'google-login-session'
@@ -323,4 +313,4 @@ def unsubscribe():
 if __name__ == '__main__':
     # Create static folder if it doesn't exist
     
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000)

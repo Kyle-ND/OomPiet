@@ -6,7 +6,6 @@ import re
 import secrets
 import uuid
 from pymongo import MongoClient
-from werkzeug.security import check_password_hash
 from flask import current_app, redirect, request, session, url_for
 
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
@@ -64,7 +63,7 @@ def get_active_session_info(user_email):
     
     if session_data:
         # Check if session is expired
-        if datetime.now(timezone.utc) - session_data["created_at"] > datetime.timedelta(hours=24):
+        if datetime.now(timezone.utc) - session_data["created_at"] > timedelta(hours=24):
             current_app.logger.info(f"Session expired for user: {user_email}")
             sessions_collection.delete_one({"_id": session_data["_id"]})
             return None
@@ -167,7 +166,7 @@ def create_password_reset_token(email):
             "email": email,
             "token": token,
             "created_at": datetime.now(timezone.utc),
-            "expires_at": datetime.now(timezone.utc) + datetime.timedelta(hours=1),
+            "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
             "used": False
         }
         
@@ -262,7 +261,7 @@ def verify_payfast_itn(data):
 def cleanup_expired_sessions():
     """Clean up expired sessions (older than 24 hours)"""
     try:
-        cutoff_time = datetime.now(timezone.utc) - datetime.timedelta(hours=24)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=24)
         result = sessions_collection.delete_many({
             "created_at": {"$lt": cutoff_time}
         })
