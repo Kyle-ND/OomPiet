@@ -7,6 +7,7 @@ import secrets
 import uuid
 from pymongo import MongoClient
 from flask import current_app, redirect, request, session, url_for
+from flask_limiter.util import get_remote_address
 
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
@@ -22,6 +23,8 @@ dashboard_stats_collection = db["dashboard_stats"]
 feedback_collection = db["feedback"]  # Add new collection for feedback
 sessions_collection = db["sessions"]  # New collection for session management
 password_reset_collection = db["password_reset_tokens"]  # New collection for password reset tokens
+
+
 
 
 
