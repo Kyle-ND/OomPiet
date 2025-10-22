@@ -1,6 +1,6 @@
 from datetime import timezone,timedelta,datetime
 from bson import ObjectId
-from flask import Flask, render_template, jsonify, redirect, url_for, session, send_from_directory, flash
+from flask import Flask, render_template, jsonify, redirect, request, url_for, session, send_from_directory, flash
 from authlib.integrations.flask_client import OAuth
 import os
 import logging
@@ -10,6 +10,9 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash
 import json
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
 
 # Load environment variables
 load_dotenv()
@@ -106,6 +109,12 @@ UPLOAD_USERS = [
     },
 ]
 
+
+limiter = Limiter(
+    app=app,
+    key_func = get_remote_address,
+)
+
 @app.route('/upload-login', methods=['POST'])
 def upload_login():
     return UserAuth.upload_user(UPLOAD_USERS)
@@ -136,15 +145,26 @@ def initialize_new_user_dashboard_stats(email):
     dashboard_stats_collection.insert_one(stats)
     return stats
 
+"""I will remove this function once we have a dedicated Util func"""
+def get_login_identifier():
+    ip = get_remote_address()
+    if request.method == "POST":
+        username = request.form.get("username", "no-username")
+        return f"{ip}:{username}"
+    return ip
 
 # --- Modified Signup Endpoint ---
 @app.route('/api/signup', methods=['POST'])
+@limiter.limit("3 per minute",  key_func= get_login_identifier,error_message="Too many signup's. Please wait a moment and try again.")
+@limiter.limit("3 per minute",  key_func= get_remote_address)
 def signup():
     return UserAuth.handle_signup(users_collection, initialize_new_user_dashboard_stats)
 
 
 
 @app.route('/api/signin', methods=['POST'])
+@limiter.limit("5 per minute",  key_func= get_login_identifier, error_message="Too many login attempts. Please wait a moment and try again.")
+@limiter.limit("10 per minute",  key_func= get_remote_address, error_message="Too many login attempts. Please wait a moment and try again.")
 def signin():
     return UserAuth.handle_signin(users_collection)
 
@@ -153,6 +173,8 @@ def signin():
 
 # Password Reset Endpoints
 @app.route('/api/forgot-password', methods=['POST'])
+@limiter.limit("5 per hour", key_func=get_login_identifier, error_message="Too many attempts. Please wait a moment and try again.")
+@limiter.limit("5 per hour", key_func=get_remote_address)
 def forgot_password():
     return UserAuth.handle_recover_password(users_collection)
 
@@ -169,11 +191,13 @@ def reset_password_page(token):
 
 
 @app.route('/api/reset-password', methods=['POST'])
+@limiter.limit("5 per hour", key_func=get_remote_address, error_message="Changed password too many times. Please wait a moment and try again.")
 def reset_password():
     return UserAuth.handle_reset_password(users_collection)
 
 
 @app.route('/login')
+@limiter.limit("5 per minute")
 def login():
     session.clear()
     session['oauth_state'] = os.urandom(16).hex()
@@ -286,6 +310,7 @@ def serve_html():
 
 @app.route('/pay')
 @login_required
+@limiter.limit("5 per hour", key_func=get_remote_address)
 def pay():
     return PayAuth.payment_op()
 
