@@ -200,6 +200,10 @@ def reset_password():
 @limiter.limit("5 per minute")
 def login():
     session.clear()
+
+    # Fetching the stored redirect_url in the session
+    session['redirect_url'] = "http://localhost:3000/mentormate-homepage"
+
     session['oauth_state'] = os.urandom(16).hex()
     session.modified = True
     redirect_uri = url_for('google_callback', _external=True)
