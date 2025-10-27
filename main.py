@@ -197,12 +197,12 @@ def reset_password():
 
 
 @app.route('/login')
-@limiter.limit("5 per minute")
+# @limiter.limit("5 per minute")
 def login():
     session.clear()
 
     # Fetching the stored redirect_url in the session
-    session['redirect_url'] = "http://localhost:3000/mentormate-homepage"
+    session['redirect_url'] = url_for("index")
 
     session['oauth_state'] = os.urandom(16).hex()
     session.modified = True
@@ -300,7 +300,7 @@ def session_conflict():
 @app.route('/api/force-login', methods=['POST'])
 def force_login():
     """Force login by logging out the previous session"""
-    return UserAuth.login(users_collection)
+    return UserAuth.handle_login(users_collection)
 
 # Serve the home page HTML file
 @app.route('/static/<path:path>')

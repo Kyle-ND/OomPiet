@@ -357,7 +357,7 @@ def handle_reset_password(users_collection):
 def handle_google_callback(google, users_collection, initialize_new_user_dashboard_stats):
 
     # Get redirect URL from query parameters
-    redirect_url = session.get("redirect_url", "http://localhost:3000/mentormate-homepage")
+    redirect_url = session.get("redirect_url", "url_for('index')")
     
     try:
         state = request.args.get('state')
