@@ -66,7 +66,11 @@ def get_active_session_info(user_email):
     
     if session_data:
         # Check if session is expired
-        if datetime.now(timezone.utc) - session_data["created_at"] > timedelta(hours=24):
+        created_at = session_data["created_at"]
+        if hasattr(created_at, 'tzinfo') and created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo = timezone.utc)
+
+        if datetime.now(timezone.utc) - created_at > timedelta(hours=24):
             current_app.logger.info(f"Session expired for user: {user_email}")
             sessions_collection.delete_one({"_id": session_data["_id"]})
             return None
@@ -83,8 +87,7 @@ def get_active_session_info(user_email):
     current_app.logger.info(f"No active session found for user: {user_email}")
     return None
 
-    
- 
+
 def validate_session(session_id, user_email):
     """Validate if a session is still active"""
     session_data = sessions_collection.find_one({
@@ -96,22 +99,38 @@ def validate_session(session_id, user_email):
         return False
     
     # Check if session is expired (24 hours)
-    created_at = session_data["created_at"]
-    # If created_at is a string, parse it
-    if isinstance(created_at, str):
-        try:
-            # Try ISO format first
-            created_at = datetime.fromisoformat(created_at)
-            # If naive, set UTC
-            if created_at.tzinfo is None:
-                created_at = created_at.replace(tzinfo=timezone.utc)
-        except Exception:
-            # Fallback: try parsing with strptime
-            created_at = datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%S.%fZ")
-            created_at = created_at.replace(tzinfo=timezone.utc)
-    elif created_at.tzinfo is None:
-        created_at = created_at.replace(tzinfo=timezone.utc)
+    created_at = session_data.get("created_at")
+    if not created_at:
+        return False
 
+    # Debug: print what we got
+    print(f"DEBUG: created_at type: {type(created_at)}, value: {created_at}")
+    if isinstance(created_at, datetime):
+        print(f"DEBUG: created_at.tzinfo: {created_at.tzinfo}")
+
+    try:
+        # If created_at is a string, parse it
+        if isinstance(created_at, str):
+            try:
+                # Try ISO format first
+                created_at = datetime.fromisoformat(created_at)
+            except ValueError:
+                # Fallback: try parsing with strptime
+                for fmt in ["%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ"]:
+                    try:
+                        created_at = datetime.strptime(created_at, fmt)
+                        break
+                    except ValueError:
+                        continue
+    except (ValueError, AttributeError):
+        return False
+    
+    # ALWAYS make timezone-aware if it's naive (no matter what happened above)
+    if hasattr(created_at, 'tzinfo') and created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+        print(f"DEBUG: Made timezone-aware: {created_at}")
+
+    # Check last activity
     if datetime.now(timezone.utc) - created_at > timedelta(hours=24):
         sessions_collection.delete_one({"_id": session_data["_id"]})
         return False

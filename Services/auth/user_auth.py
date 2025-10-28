@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlencode
 from flask import current_app, make_response, redirect, request, jsonify , session, url_for
 from datetime import datetime, timedelta, timezone
 import requests
@@ -26,7 +27,7 @@ def handle_signup(users_collection , initialize_new_user_dashboard_stats_func):
             return jsonify({'success': False, 'error': 'Invalid email format'}), 400
 
         if len(password) < 6:
-            return jsonify({'success': False, 'error': 'Password must be at least 6 characters long'}),
+            return jsonify({'success': False, 'error': 'Password must be at least 6 characters long'}),400
 
         # Check if user already exists
         existing_user = users_collection.find_one({'email': email})
@@ -48,7 +49,7 @@ def handle_signup(users_collection , initialize_new_user_dashboard_stats_func):
         users_collection.insert_one(user_data)
         initialize_new_user_dashboard_stats_func(email)
 
-        return jsonify({'success': True, 'message': 'Account created successfully! You can now sign in.'})
+        return jsonify({'success': True, 'message': 'Account created successfully! You can now sign in.'}), 200
 
     except Exception as e:
         current_app.logger.error(f"Error in signup: {str(e)}")
@@ -354,6 +355,10 @@ def handle_reset_password(users_collection):
 
 
 def handle_google_callback(google, users_collection, initialize_new_user_dashboard_stats):
+
+    # Get redirect URL from query parameters
+    redirect_url = session.get("redirect_url", "url_for('index')")
+    
     try:
         state = request.args.get('state')
         stored_state = session.get('oauth_state')
@@ -427,12 +432,21 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         session.modified = True
 
         current_app.logger.info(f"Google login successful for user: {user_data['email']}")
-        return redirect(url_for('index'))
+
+        params = {
+            "success" : "true",
+            "email" : db_user["email"],
+            "name" : db_user["name"]
+        }
+
+        # Redirect to frontend with success and user info
+        return redirect(f"{redirect_url}?{urlencode(params)}")
 
     except Exception as e:
         current_app.logger.error(f"Error in Google callback: {str(e)}")
         session.clear()
-        return redirect(url_for('index'))
+
+        return redirect(f"{redirect_url}?error=auth_failed&message={str(e)}")
     
 def handle_user_profile(users_collection, db):
     user = session.get('user')
