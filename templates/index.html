@@ -324,10 +324,10 @@
         .form-group.error input {
             border-color: var(--danger);
         }
-        
-          .first-name {
-                margin-right: 1rem;
-            }
+
+        .first-name {
+            margin-right: 1rem;
+        }
 
         /* Password Toggle */
         .password-group {
@@ -1942,321 +1942,341 @@
                                     <button type="button" class="password-toggle"
                                         data-target="signup-confirm-password">👁️</button>
                                 </div>
+                                <p class="password-hint" style="
+        margin: 0.35rem 0 0 0;
+        font-size: 0.82rem;
+        color: var(--neutral-medium);
+        line-height: 1.4;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    ">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                        style="flex-shrink:0;">
+                                        <path d="M12 2a10 10 0 0 1 0 20 10 10 0 0 1 0-20z"></path>
+                                        <path d="M12 8v4"></path>
+                                        <path d="M12 16h.01"></path>
+                                    </svg>
+                                    <span>Password must be <strong>longer than 6 characters</strong> for
+                                        security.</span>
+                                </p>
                             </div>
-                            <div class="form-options" style="margin-bottom: 1.2rem;">
-                                <label
-                                    style="display: flex; align-items: center; color: var(--neutral-medium); cursor: pointer; font-size: 0.93rem;">
-                                    <input type="checkbox" id="accept-terms" style="margin-right: 0.5rem; width: auto;">
-                                    <span style="color: var(--neutral-dark); font-weight: 400;">Accept&nbsp;</span>
-                                    <a href="/terms" target="_blank"
-                                        style="color: #1d78a3; text-decoration: underline; font-size: 0.93rem; font-weight: 400;">Terms
-                                        and Conditions</a>
-                                </label>
-                            </div>
-                            <button type="submit" class="btn-submit" id="signup-btn" disabled>Sign up</button>
-                            <div class="divider">
-                                <span>or</span>
-                            </div>
-                            <a href="/login" class="btn-google">
-                                <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgiIGhlaWdodD0iMTgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj48cGF0aCBkPSJNMTcuNiA5LjJsLS4xLTEuOEg5djMuNGg0LjhDMTMuNiAxMiAxMyAxMyAxMiAxMy42djIuMmgzYTguOCA4LjggMCAwIDAgMi42LTYuNnoiIGZpbGw9IiM0Mjg1RjQiIGZpbGwtcnVsZT0ibm9uemVybyIvPjxwYXRoIGQ9Ik05IDE4YzIuNCAwIDQuNS0uOCA2LTIuMmwtMy0yLjJhNS40IDUuNCAwIDAgMS04LTIuOUgxVjEzYTkgOSAwIDAgMCA4IDV6IiBmaWxsPSIjMzRBODUzIiBmaWxsLXJ1bGU9Im5vbnplcm8iLz48cGF0aCBkPSJNNC4xMC43YTUuNCA1LjQgMCAwIDEgMC0zLjRWNUgxYTkgOSAwIDAgMCAwIDhsMy0yLjN6IiBmaWxsPSIjRkJCQzA1IiBmaWxsLXJ1bGU9Im5vbnplcm8iLz48cGF0aCBkPSJNOSAzLjZjMS4zIDAgMi41LjQgMy40IDEuM0wxNSAyLjNBOSA5IDAgMCAwIDEgNWwzIDIuNGE1LjQgNS40IDAgMCAxIDUtMy43eiIgZmlsbD0iI0VBNDMzNSIgZmlsbC1ydWxlPSJub256ZXJvIi8+PHBhdGggZD0iTTAgMGgxOHYxOEgweiIvPjwvZz48L3N2Zz4="
-                                    alt="Google">
-                                Continue with Google
-                            </a>
-                            <br>
-                            <a href="/login" class="btn-google">
-                                <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgiIGhlaWdodD0iMTgiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjguOTUiIGhlaWdodD0iOC45NSIgZmlsbD0iI0Y0NDQzNiIvPjxyZWN0IHg9IjEyLjA1IiB5PSIzIiB3aWR0aD0iOC45NSIgaGVpZ2h0PSI4Ljk1IiBmaWxsPSIjN0NCRUZBIi8+PHJlY3QgeD0iMyIgeT0iMTIuMDUiIHdpZHRoPSI4Ljk1IiBoZWlnaHQ9IjguOTUiIGZpbGw9IiNGQkJCMDYiLz48cmVjdCB4PSIxMi4wNSIgeT0iMTIuMDUiIHdpZHRoPSI4Ljk1IiBoZWlnaHQ9IjguOTUiIGZpbGw9IiM0MzkzRjQiLz4KPC9zdmc+Cg=="
-                                    alt="Microsoft">
-                                Continue with Microsoft
-                            </a>
-                        </form>
                     </div>
+                    <div class="form-options" style="margin-bottom: 1.2rem;">
+                        <label
+                            style="display: flex; align-items: center; color: var(--neutral-medium); cursor: pointer; font-size: 0.93rem;">
+                            <input type="checkbox" id="accept-terms" style="margin-right: 0.5rem; width: auto;">
+                            <span style="color: var(--neutral-dark); font-weight: 400;">Accept&nbsp;</span>
+                            <a href="/terms" target="_blank"
+                                style="color: #1d78a3; text-decoration: underline; font-size: 0.93rem; font-weight: 400;">Terms
+                                and Conditions</a>
+                        </label>
+                    </div>
+                    <button type="submit" class="btn-submit" id="signup-btn" disabled>Sign up</button>
+                    <div class="divider">
+                        <span>or</span>
+                    </div>
+                    <a href="/login" class="btn-google">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgiIGhlaWdodD0iMTgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj48cGF0aCBkPSJNMTcuNiA5LjJsLS4xLTEuOEg5djMuNGg0LjhDMTMuNiAxMiAxMyAxMyAxMiAxMy42djIuMmgzYTguOCA4LjggMCAwIDAgMi42LTYuNnoiIGZpbGw9IiM0Mjg1RjQiIGZpbGwtcnVsZT0ibm9uemVybyIvPjxwYXRoIGQ9Ik05IDE4YzIuNCAwIDQuNS0uOCA2LTIuMmwtMy0yLjJhNS40IDUuNCAwIDAgMS04LTIuOUgxVjEzYTkgOSAwIDAgMCA4IDV6IiBmaWxsPSIjMzRBODUzIiBmaWxsLXJ1bGU9Im5vbnplcm8iLz48cGF0aCBkPSJNNC4xMC43YTUuNCA1LjQgMCAwIDEgMC0zLjRWNUgxYTkgOSAwIDAgMCAwIDhsMy0yLjN6IiBmaWxsPSIjRkJCQzA1IiBmaWxsLXJ1bGU9Im5vbnplcm8iLz48cGF0aCBkPSJNOSAzLjZjMS4zIDAgMi41LjQgMy40IDEuM0wxNSAyLjNBOSA5IDAgMCAwIDEgNWwzIDIuNGE1LjQgNS40IDAgMCAxIDUtMy43eiIgZmlsbD0iI0VBNDMzNSIgZmlsbC1ydWxlPSJub256ZXJvIi8+PHBhdGggZD0iTTAgMGgxOHYxOEgweiIvPjwvZz48L3N2Zz4="
+                            alt="Google">
+                        Continue with Google
+                    </a>
+                    <br>
+                    <a href="/login" class="btn-google">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgiIGhlaWdodD0iMTgiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjguOTUiIGhlaWdodD0iOC45NSIgZmlsbD0iI0Y0NDQzNiIvPjxyZWN0IHg9IjEyLjA1IiB5PSIzIiB3aWR0aD0iOC45NSIgaGVpZ2h0PSI4Ljk1IiBmaWxsPSIjN0NCRUZBIi8+PHJlY3QgeD0iMyIgeT0iMTIuMDUiIHdpZHRoPSI4Ljk1IiBoZWlnaHQ9IjguOTUiIGZpbGw9IiNGQkJCMDYiLz48cmVjdCB4PSIxMi4wNSIgeT0iMTIuMDUiIHdpZHRoPSI4Ljk1IiBoZWlnaHQ9IjguOTUiIGZpbGw9IiM0MzkzRjQiLz4KPC9zdmc+Cg=="
+                            alt="Microsoft">
+                        Continue with Microsoft
+                    </a>
+                    </form>
                 </div>
             </div>
         </div>
-        <!-- End Before-auth flex layout -->
+    </div>
+    <!-- End Before-auth flex layout -->
 
-        <!-- Expert selection container (after-auth, shown when logged in) -->
-        <div class="experts-container" id="experts-container" style="display: none;">
-            <div class="welcome-section">
-                <h1>Choose your expert below!</h1>
+    <!-- Expert selection container (after-auth, shown when logged in) -->
+    <div class="experts-container" id="experts-container" style="display: none;">
+        <div class="welcome-section">
+            <h1>Choose your expert below!</h1>
+        </div>
+        <div class="experts-grid">
+
+            <div class="expert-card" onclick="window.location.href='/chat_water'">
+                <img src="/static/character3.png" alt="Mama Dudu" class="expert-image">
+                <div class="expert-name">Mama Dudu</div>
+                <div class="expert-areas-heading1"><span style="padding-right: 1.2rem;"> Areas of expertise
+                        include:</span></div>
+                <ul class="expert-areas-list1">
+                    <li>Environmental Engineering</li>
+                    <li>Water Management</li>
+                    <li>Wastewater treatment</li>
+                </ul>
             </div>
-            <div class="experts-grid">
-
-                <div class="expert-card" onclick="window.location.href='/chat_water'">
-                    <img src="/static/character3.png" alt="Mama Dudu" class="expert-image">
-                    <div class="expert-name">Mama Dudu</div>
-                    <div class="expert-areas-heading1"><span style="padding-right: 1.2rem;"> Areas of expertise
-                            include:</span></div>
-                    <ul class="expert-areas-list1">
-                        <li>Environmental Engineering</li>
-                        <li>Water Management</li>
-                        <li>Wastewater treatment</li>
-                    </ul>
-                </div>
-                <div class="expert-card" onclick="window.location.href='/chat'">
-                    <img src="/static/character.png" alt="Oom Piet" class="expert-image">
-                    <div class="expert-name">Oom Piet</div>
-                    <div class="expert-areas-heading1"><span style="padding-right: 1.2rem;"> Areas of expertise
-                            include:</span></div>
-                    <ul class="expert-areas-list1">
-                        <li>Soil mechanics</li>
-                        <li>Geology and hydrogeology</li>
-                        <li>Tailings Engineering</li>
-                    </ul>
-                </div>
-                <div class="expert-card" onclick="window.location.href='/chat_concrete'">
-                    <img src="/static/charcater2.png" alt="Bra Vusi" class="expert-image">
-                    <div class="expert-name">Bra Vusi</div>
-                    <div class="expert-areas-heading1"><span style="padding-left: 1.3rem;"> Areas of expertise
-                            include:</span> </div>
-                    <ul class="expert-areas-list1">
-                        <li>Concrete construction</li>
-                        <li>Structural design</li>
-                        <li>Foundations</li>
-                    </ul>
-                </div>
-                <div class="expert-card" onclick="window.location.href='/chat_electrical'">
-                    <img src="/static/character4.png" alt="Mr Rakesh" class="expert-image">
-                    <div class="public-expert-name">Mr Rakesh</div>
-                    <div class="expert-areas-heading1"><span style="padding-right: 1.2rem;">Areas of expertise
-                            include:</span></div>
-                    <ul class="expert-areas-list1">
-                        <li>Electrical power systems</li>
-                        <li>Integrated energy planning</li>
-                        <li>Renewables</li>
-                    </ul>
-                </div>
-                <div class="expert-card" onclick="window.location.href='/chat_mining'">
-                    <img src="/static/character5.png" alt="Sis Nandi" class="expert-image">
-                    <div class="public-expert-name">Sis Nandi</div>
-                    <div class="expert-areas-heading"><span style="padding-right: 1.2rem;">Areas of expertise
-                            include:</span></div>
-                    <ul class="expert-areas-list1">
-                        <li>Metallurgical processes</li>
-                        <li>Resource characterisation</li>
-                        <li>Mining Engineering</li>
-                    </ul>
-                </div>
+            <div class="expert-card" onclick="window.location.href='/chat'">
+                <img src="/static/character.png" alt="Oom Piet" class="expert-image">
+                <div class="expert-name">Oom Piet</div>
+                <div class="expert-areas-heading1"><span style="padding-right: 1.2rem;"> Areas of expertise
+                        include:</span></div>
+                <ul class="expert-areas-list1">
+                    <li>Soil mechanics</li>
+                    <li>Geology and hydrogeology</li>
+                    <li>Tailings Engineering</li>
+                </ul>
+            </div>
+            <div class="expert-card" onclick="window.location.href='/chat_concrete'">
+                <img src="/static/charcater2.png" alt="Bra Vusi" class="expert-image">
+                <div class="expert-name">Bra Vusi</div>
+                <div class="expert-areas-heading1"><span style="padding-left: 1.3rem;"> Areas of expertise
+                        include:</span> </div>
+                <ul class="expert-areas-list1">
+                    <li>Concrete construction</li>
+                    <li>Structural design</li>
+                    <li>Foundations</li>
+                </ul>
+            </div>
+            <div class="expert-card" onclick="window.location.href='/chat_electrical'">
+                <img src="/static/character4.png" alt="Mr Rakesh" class="expert-image">
+                <div class="public-expert-name">Mr Rakesh</div>
+                <div class="expert-areas-heading1"><span style="padding-right: 1.2rem;">Areas of expertise
+                        include:</span></div>
+                <ul class="expert-areas-list1">
+                    <li>Electrical power systems</li>
+                    <li>Integrated energy planning</li>
+                    <li>Renewables</li>
+                </ul>
+            </div>
+            <div class="expert-card" onclick="window.location.href='/chat_mining'">
+                <img src="/static/character5.png" alt="Sis Nandi" class="expert-image">
+                <div class="public-expert-name">Sis Nandi</div>
+                <div class="expert-areas-heading"><span style="padding-right: 1.2rem;">Areas of expertise
+                        include:</span></div>
+                <ul class="expert-areas-list1">
+                    <li>Metallurgical processes</li>
+                    <li>Resource characterisation</li>
+                    <li>Mining Engineering</li>
+                </ul>
             </div>
         </div>
-        <!-- End after-auth expert grid -->
+    </div>
+    <!-- End after-auth expert grid -->
 
-        <!-- FAQ Section and Links -->
-        <div id="home-links-section" style="max-width: 600px; margin: 2.5rem auto 0 auto; text-align: center;">
-            <p style="font-size: 1.15rem; color: #090909; margin-bottom: 0.5rem;">
-                Learn how to get the most out of your Mentormate experts
-                <a href="/detail" style="color: #1d78a3; text-decoration: underline; font-weight: 600;">here</a>
-            </p>
-            <p style="font-size: 1.08rem; color: #333; margin-top: 0.7rem;margin-bottom: 5rem;">
-                <a href="mailto:office@intailings.com"
-                    style="color: #1d78a3; text-decoration: underline; font-weight: 600;">Contact us</a>
-            </p>
-        </div>
+    <!-- FAQ Section and Links -->
+    <div id="home-links-section" style="max-width: 600px; margin: 2.5rem auto 0 auto; text-align: center;">
+        <p style="font-size: 1.15rem; color: #090909; margin-bottom: 0.5rem;">
+            Learn how to get the most out of your Mentormate experts
+            <a href="/detail" style="color: #1d78a3; text-decoration: underline; font-weight: 600;">here</a>
+        </p>
+        <p style="font-size: 1.08rem; color: #333; margin-top: 0.7rem;margin-bottom: 5rem;">
+            <a href="mailto:office@intailings.com"
+                style="color: #1d78a3; text-decoration: underline; font-weight: 600;">Contact us</a>
+        </p>
+    </div>
 
-        <script>
-            document.querySelectorAll('.faq-question').forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    const expanded = btn.getAttribute('aria-expanded') === 'true';
-                    // Collapse all
-                    document.querySelectorAll('.faq-question').forEach(b => b.setAttribute('aria-expanded', 'false'));
-                    document.querySelectorAll('.faq-answer').forEach(a => a.style.display = 'none');
-                    // Expand this one if it was not already expanded
-                    if (!expanded) {
-                        btn.setAttribute('aria-expanded', 'true');
-                        btn.parentElement.querySelector('.faq-answer').style.display = 'block';
-                    }
-                });
+    <script>
+        document.querySelectorAll('.faq-question').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const expanded = btn.getAttribute('aria-expanded') === 'true';
+                // Collapse all
+                document.querySelectorAll('.faq-question').forEach(b => b.setAttribute('aria-expanded', 'false'));
+                document.querySelectorAll('.faq-answer').forEach(a => a.style.display = 'none');
+                // Expand this one if it was not already expanded
+                if (!expanded) {
+                    btn.setAttribute('aria-expanded', 'true');
+                    btn.parentElement.querySelector('.faq-answer').style.display = 'block';
+                }
             });
-        </script>
+        });
+    </script>
 
 
-        <script>
-            document.addEventListener('DOMContentLoaded', function () {
-                // Elements
-                const authContainer = document.getElementById('auth-container');
-                const welcomeContainer = document.getElementById('welcome-container');
-                const chatButton = document.getElementById('chat-button');
-                const profileContainer = document.getElementById('profile-container');
-                const signinTab = document.getElementById('signin-tab');
-                const signupTab = document.getElementById('signup-tab');
-                const signinForm = document.getElementById('signin-form');
-                const signupForm = document.getElementById('signup-form');
-                const messageContainer = document.getElementById('message-container');
-                const loadingSpinner = document.querySelector('.loading-spinner');
-                const profileButton = document.getElementById('profile-button');
-                const profileDropdown = document.getElementById('profile-dropdown');
-                const logoutButton = document.getElementById('logout-button');
-                const profileImage = document.getElementById('profile-image');
-                const profileName = document.getElementById('profile-name');
-                const profileEmail = document.getElementById('profile-email');
-                const signupBtn = document.getElementById('signup-btn');
-                const acceptTermsCheckbox = document.getElementById('accept-terms');
-                const expertsContainer = document.getElementById('experts-container');
-                const publicExpertsSection = document.getElementById('public-experts-section');
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Elements
+            const authContainer = document.getElementById('auth-container');
+            const welcomeContainer = document.getElementById('welcome-container');
+            const chatButton = document.getElementById('chat-button');
+            const profileContainer = document.getElementById('profile-container');
+            const signinTab = document.getElementById('signin-tab');
+            const signupTab = document.getElementById('signup-tab');
+            const signinForm = document.getElementById('signin-form');
+            const signupForm = document.getElementById('signup-form');
+            const messageContainer = document.getElementById('message-container');
+            const loadingSpinner = document.querySelector('.loading-spinner');
+            const profileButton = document.getElementById('profile-button');
+            const profileDropdown = document.getElementById('profile-dropdown');
+            const logoutButton = document.getElementById('logout-button');
+            const profileImage = document.getElementById('profile-image');
+            const profileName = document.getElementById('profile-name');
+            const profileEmail = document.getElementById('profile-email');
+            const signupBtn = document.getElementById('signup-btn');
+            const acceptTermsCheckbox = document.getElementById('accept-terms');
+            const expertsContainer = document.getElementById('experts-container');
+            const publicExpertsSection = document.getElementById('public-experts-section');
 
-                // Check login status on page load
-                checkLoginStatus();
+            // Check login status on page load
+            checkLoginStatus();
 
-                // Tab switching
-                signinTab.addEventListener('click', () => switchTab('signin'));
-                signupTab.addEventListener('click', () => switchTab('signup'));
+            // Tab switching
+            signinTab.addEventListener('click', () => switchTab('signin'));
+            signupTab.addEventListener('click', () => switchTab('signup'));
 
-                // Password toggle
-                document.querySelectorAll('.password-toggle').forEach(button => {
-                    button.addEventListener('click', togglePassword);
+            // Password toggle
+            document.querySelectorAll('.password-toggle').forEach(button => {
+                button.addEventListener('click', togglePassword);
+            });
+
+            // Form submissions
+            signinForm.addEventListener('submit', handleSignin);
+            signupForm.addEventListener('submit', handleSignup);
+
+            // Profile dropdown
+            if (profileButton) {
+                profileButton.addEventListener('click', function () {
+                    profileDropdown.classList.toggle('show');
                 });
+            }
 
-                // Form submissions
-                signinForm.addEventListener('submit', handleSignin);
-                signupForm.addEventListener('submit', handleSignup);
-
-                // Profile dropdown
-                if (profileButton) {
-                    profileButton.addEventListener('click', function () {
-                        profileDropdown.classList.toggle('show');
-                    });
-                }
-
-                if (logoutButton) {
-                    logoutButton.addEventListener('click', function (e) {
-                        e.preventDefault();
-                        logout();
-                    });
-                }
-
-                // Close dropdown when clicking outside
-                document.addEventListener('click', function (e) {
-                    if (profileButton && !profileButton.contains(e.target) &&
-                        profileDropdown && !profileDropdown.contains(e.target)) {
-                        profileDropdown.classList.remove('show');
-                    }
-                });
-
-                // Sign up button state
-                acceptTermsCheckbox.addEventListener('change', function () {
-                    signupBtn.disabled = !this.checked;
-                });
-
-                // Functions
-                function switchTab(tab) {
-                    const tabs = [signinTab, signupTab];
-                    const forms = [signinForm, signupForm];
-
-                    tabs.forEach(t => t.classList.remove('active'));
-                    forms.forEach(f => f.classList.remove('active'));
-
-                    if (tab === 'signin') {
-                        signinTab.classList.add('active');
-                        signinForm.classList.add('active');
-                    } else {
-                        signupTab.classList.add('active');
-                        signupForm.classList.add('active');
-                    }
-
-                    clearMessages();
-                }
-
-                function togglePassword(e) {
-                    const targetId = e.target.getAttribute('data-target');
-                    const input = document.getElementById(targetId);
-
-                    if (input.type === 'password') {
-                        input.type = 'text';
-                        e.target.textContent = '🙈';
-                    } else {
-                        input.type = 'password';
-                        e.target.textContent = '👁️';
-                    }
-                }
-
-                function handleSignup(e) {
+            if (logoutButton) {
+                logoutButton.addEventListener('click', function (e) {
                     e.preventDefault();
-                    const firstName = document.getElementById('signup-first-name').value.trim();
-                    const lastName = document.getElementById('signup-last-name').value.trim();
-                    const birthdate = document.getElementById('signup-birthdate').value.trim();
-                    const phoneNumber = document.getElementById('signup-phone').value.trim();
-                    const email = document.getElementById('signup-email').value;
-                    const password = document.getElementById('signup-password').value;
-                    const confirmPassword = document.getElementById('signup-confirm-password').value;
-                    const acceptTerms = document.getElementById('accept-terms').checked;
-                    if (!acceptTerms) {
-                        showError('You must accept the Terms and Conditions to sign up.');
-                        return;
-                    }
-                    if (password !== confirmPassword) {
-                        showError('Passwords do not match');
-                        return;
-                    }
-                    if (password.length < 6) {
-                        showError('Password must be at least 6 characters long');
-                        return;
-                    }
-                    showLoading();
-                    fetch('/api/signup', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ firstName, lastName, birthdate, phoneNumber, email, password })
-                    })
-                        .then(response => response.json())
-                        .then(data => {
-                            hideLoading();
-                            if (data.success) {
-                                // Switch to sign in tab
-                                switchTab('signin');
-                                showSuccess(data.message || 'Account created successfully! Please sign in.');
-                            } else {
-                                showError(data.error || 'Failed to create account');
-                            }
-                        })
-                        .catch(error => {
-                            hideLoading();
-                            console.error('Signup error:', error);
-                            showError('An error occurred. Please try again.');
-                        });
+                    logout();
+                });
+            }
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function (e) {
+                if (profileButton && !profileButton.contains(e.target) &&
+                    profileDropdown && !profileDropdown.contains(e.target)) {
+                    profileDropdown.classList.remove('show');
+                }
+            });
+
+            // Sign up button state
+            acceptTermsCheckbox.addEventListener('change', function () {
+                signupBtn.disabled = !this.checked;
+            });
+
+            // Functions
+            function switchTab(tab) {
+                const tabs = [signinTab, signupTab];
+                const forms = [signinForm, signupForm];
+
+                tabs.forEach(t => t.classList.remove('active'));
+                forms.forEach(f => f.classList.remove('active'));
+
+                if (tab === 'signin') {
+                    signinTab.classList.add('active');
+                    signinForm.classList.add('active');
+                } else {
+                    signupTab.classList.add('active');
+                    signupForm.classList.add('active');
                 }
 
-                // OTP Modal Logic
+                clearMessages();
+            }
 
-                function handleSignin(e) {
-                    e.preventDefault();
+            function togglePassword(e) {
+                const targetId = e.target.getAttribute('data-target');
+                const input = document.getElementById(targetId);
 
-                    const email = document.getElementById('signin-email').value;
-                    const password = document.getElementById('signin-password').value;
-
-                    showLoading();
-
-                    fetch('/api/signin', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ email, password })
-                    })
-                        .then(response => response.json())
-                        .then(data => {
-                            hideLoading();
-                            if (data.success) {
-                                showLoggedInState();
-                                updateProfileUI(data.user);
-                            } else if (data.error === 'session_conflict') {
-                                // Show session conflict modal
-                                showSessionConflictModal(data.message, data.session_info, email, password);
-                            } else {
-                                showError(data.error || 'Invalid email or password');
-                            }
-                        })
-                        .catch(error => {
-                            hideLoading();
-                            console.error('Signin error:', error);
-                            showError('An error occurred. Please try again.');
-                        });
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    e.target.textContent = '🙈';
+                } else {
+                    input.type = 'password';
+                    e.target.textContent = '👁️';
                 }
+            }
 
-                function showSessionConflictModal(message, sessionInfo, email, password) {
-                    // Create modal HTML
-                    const modalHTML = `
+            function handleSignup(e) {
+                e.preventDefault();
+                const firstName = document.getElementById('signup-first-name').value.trim();
+                const lastName = document.getElementById('signup-last-name').value.trim();
+                const birthdate = document.getElementById('signup-birthdate').value.trim();
+                const phoneNumber = document.getElementById('signup-phone').value.trim();
+                const email = document.getElementById('signup-email').value;
+                const password = document.getElementById('signup-password').value;
+                const confirmPassword = document.getElementById('signup-confirm-password').value;
+                const acceptTerms = document.getElementById('accept-terms').checked;
+                if (!acceptTerms) {
+                    showError('You must accept the Terms and Conditions to sign up.');
+                    return;
+                }
+                if (password !== confirmPassword) {
+                    showError('Passwords do not match');
+                    return;
+                }
+                if (password.length < 6) {
+                    showError('Password must be at least 6 characters long');
+                    return;
+                }
+                showLoading();
+                fetch('/api/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ firstName, lastName, birthdate, phoneNumber, email, password })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        hideLoading();
+                        if (data.success) {
+                            // Switch to sign in tab
+                            switchTab('signin');
+                            showSuccess(data.message || 'Account created successfully! Please sign in.');
+                        } else {
+                            showError(data.error || 'Failed to create account');
+                        }
+                    })
+                    .catch(error => {
+                        hideLoading();
+                        console.error('Signup error:', error);
+                        showError('An error occurred. Please try again.');
+                    });
+            }
+
+            // OTP Modal Logic
+
+            function handleSignin(e) {
+                e.preventDefault();
+
+                const email = document.getElementById('signin-email').value;
+                const password = document.getElementById('signin-password').value;
+
+                showLoading();
+
+                fetch('/api/signin', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        hideLoading();
+                        if (data.success) {
+                            showLoggedInState();
+                            updateProfileUI(data.user);
+                        } else if (data.error === 'session_conflict') {
+                            // Show session conflict modal
+                            showSessionConflictModal(data.message, data.session_info, email, password);
+                        } else {
+                            showError(data.error || 'Invalid email or password');
+                        }
+                    })
+                    .catch(error => {
+                        hideLoading();
+                        console.error('Signin error:', error);
+                        showError('An error occurred. Please try again.');
+                    });
+            }
+
+            function showSessionConflictModal(message, sessionInfo, email, password) {
+                // Create modal HTML
+                const modalHTML = `
                     <div id="session-conflict-modal" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);z-index:2000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(5px);">
                         <div style="background:#fff;padding:2.5rem;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);text-align:center;max-width:500px;width:95%;animation:fadeIn 0.5s ease-out;">
                             <div style="font-size:3rem;margin-bottom:1rem;">⚠️</div>
@@ -2294,386 +2314,387 @@
                     </div>
                 `;
 
-                    // Add modal to page
-                    document.body.insertAdjacentHTML('beforeend', modalHTML);
+                // Add modal to page
+                document.body.insertAdjacentHTML('beforeend', modalHTML);
 
-                    // Add event listeners
-                    document.getElementById('force-login-btn').addEventListener('click', () => {
-                        handleForceLogin(email, password);
-                    });
-
-                    document.getElementById('cancel-login-btn').addEventListener('click', () => {
-                        document.getElementById('session-conflict-modal').remove();
-                    });
-                }
-
-                function handleForceLogin(email, password) {
-                    console.log('handleForceLogin called with email:', email);
-
-                    const loading = document.getElementById('force-login-loading');
-                    const error = document.getElementById('force-login-error');
-                    const buttons = document.querySelector('#session-conflict-modal .buttons');
-
-                    console.log('Found elements:', { loading, error, buttons });
-
-                    // Show loading
-                    loading.style.display = 'flex';
-                    if (buttons) buttons.style.display = 'none';
-                    error.style.display = 'none';
-
-                    console.log('Making force login API call...');
-
-                    // Make API call to force login
-                    fetch('/api/force-login', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ email })
-                    })
-                        .then(response => {
-                            console.log('Force login response status:', response.status);
-                            if (!response.ok) {
-                                throw new Error(`HTTP error! status: ${response.status}`);
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            console.log('Force login response data:', data);
-                            if (data.success) {
-                                // Remove modal and update UI
-                                document.getElementById('session-conflict-modal').remove();
-                                showLoggedInState();
-                                updateProfileUI(data.user);
-                            } else {
-                                throw new Error(data.error || 'Force login failed');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Force login error:', error);
-                            // Show error and restore buttons
-                            document.getElementById('force-login-error').textContent = 'An error occurred. Please try again.';
-                            document.getElementById('force-login-error').style.display = 'block';
-                            loading.style.display = 'none';
-                            if (buttons) buttons.style.display = 'flex';
-                        });
-                }
-
-                function formatTimeAgo(timestamp) {
-                    try {
-                        const date = new Date(timestamp);
-                        const now = new Date();
-                        const diffMs = now - date;
-                        const diffMins = Math.floor(diffMs / 60000);
-                        const diffHours = Math.floor(diffMs / 3600000);
-
-                        if (diffMins < 1) {
-                            return 'Just now';
-                        } else if (diffMins < 60) {
-                            return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-                        } else if (diffHours < 24) {
-                            return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-                        } else {
-                            return date.toLocaleString();
-                        }
-                    } catch (e) {
-                        return timestamp;
-                    }
-                }
-
-                function checkLoginStatus() {
-                    fetch('/check-login-status')
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.loggedIn) {
-                                showLoggedInState();
-                                fetchUserProfile();
-                                // Ensure we're on the index page
-                                if (window.location.pathname !== '/') {
-                                    window.location.href = '/';
-                                }
-                            } else {
-                                showLoggedOutState();
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error checking login status:', error);
-                            showLoggedOutState();
-                        });
-                }
-
-                function fetchUserProfile() {
-                    fetch('/api/user-profile')
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Failed to fetch user profile');
-                            }
-                            return response.json();
-                        })
-                        .then(user => {
-                            updateProfileUI(user);
-                        })
-                        .catch(error => {
-                            console.error('Error fetching user profile:', error);
-                            updateProfileUI({
-                                name: 'User',
-                                email: 'user@example.com',
-                                picture: '/static/default-profile.png'
-                            });
-                        });
-                }
-
-                function updateProfileUI(user) {
-                    if (profileName) profileName.textContent = user.name || 'User';
-                    if (profileEmail) profileEmail.textContent = user.email || 'user@example.com';
-                    if (profileImage) profileImage.src = user.picture || '/static/default-profile.png';
-                }
-
-                function showLoggedInState() {
-                    if (authContainer) authContainer.style.display = 'none';
-                    if (expertsContainer) expertsContainer.style.display = 'block';
-                    if (publicExpertsSection) publicExpertsSection.style.display = 'none';
-                    if (chatButton) chatButton.style.display = 'none';
-                    if (profileContainer) profileContainer.style.display = 'block';
-                    if (document.getElementById('home-main-content')) {
-                        document.getElementById('home-main-content').style.display = 'block';
-                    }
-                    // Hide FAQ when logged in
-                    if (document.getElementById('faq-section')) {
-                        document.getElementById('faq-section').style.display = 'none';
-                    }
-                    // Show home links section when logged in
-                    if (document.getElementById('home-links-section')) {
-                        document.getElementById('home-links-section').style.display = 'block';
-                    }
-                }
-                function showLoggedOutState() {
-                    if (authContainer) authContainer.style.display = 'block';
-                    if (expertsContainer) expertsContainer.style.display = 'none';
-                    if (publicExpertsSection) publicExpertsSection.style.display = 'flex';
-                    if (chatButton) chatButton.style.display = 'none';
-                    if (profileContainer) profileContainer.style.display = 'none';
-                    if (document.getElementById('home-main-content')) {
-                        document.getElementById('home-main-content').style.display = 'none';
-                    }
-                    // Show FAQ when logged out
-                    if (document.getElementById('faq-section')) {
-                        document.getElementById('faq-section').style.display = 'block';
-                    }
-                    // Hide home links section when logged out
-                    if (document.getElementById('home-links-section')) {
-                        document.getElementById('home-links-section').style.display = 'none';
-                    }
-                }
-
-                function logout() {
-                    showLoading();
-                    fetch('/logout', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    })
-                        .then(response => {
-                            if (response.ok) {
-                                showLoggedOutState();
-                                hideLoading();
-                                showSuccess('Logged out successfully');
-                            } else {
-                                throw new Error('Logout failed');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error during logout:', error);
-                            hideLoading();
-                            showError('Logout failed. Please try again.');
-                        });
-                }
-
-                function showLoading() {
-                    if (loadingSpinner) loadingSpinner.style.display = 'flex';
-                }
-
-                function hideLoading() {
-                    if (loadingSpinner) loadingSpinner.style.display = 'none';
-                }
-
-                function showError(message) {
-                    clearMessages();
-                    const errorDiv = document.createElement('div');
-                    errorDiv.className = 'error-message';
-                    errorDiv.textContent = message;
-                    messageContainer.appendChild(errorDiv);
-                }
-
-                function showSuccess(message) {
-                    clearMessages();
-                    const successDiv = document.createElement('div');
-                    successDiv.className = 'success-message';
-                    successDiv.textContent = message;
-                    messageContainer.appendChild(successDiv);
-                }
-
-                function clearMessages() {
-                    messageContainer.innerHTML = '';
-                }
-
-                // Forgot password handler
-                document.getElementById('forgot-password').addEventListener('click', function (e) {
-                    e.preventDefault();
-                    handleForgotPassword();
+                // Add event listeners
+                document.getElementById('force-login-btn').addEventListener('click', () => {
+                    handleForceLogin(email, password);
                 });
 
-                function handleForgotPassword() {
-                    const email = document.getElementById('signin-email').value.trim();
+                document.getElementById('cancel-login-btn').addEventListener('click', () => {
+                    document.getElementById('session-conflict-modal').remove();
+                });
+            }
 
-                    if (!email) {
-                        showError('Please enter your email address first');
-                        return;
-                    }
+            function handleForceLogin(email, password) {
+                console.log('handleForceLogin called with email:', email);
 
-                    if (!isValidEmail(email)) {
-                        showError('Please enter a valid email address');
-                        return;
-                    }
+                const loading = document.getElementById('force-login-loading');
+                const error = document.getElementById('force-login-error');
+                const buttons = document.querySelector('#session-conflict-modal .buttons');
 
-                    showLoading();
-                    clearMessages();
+                console.log('Found elements:', { loading, error, buttons });
 
-                    fetch('/api/forgot-password', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ email: email })
+                // Show loading
+                loading.style.display = 'flex';
+                if (buttons) buttons.style.display = 'none';
+                error.style.display = 'none';
+
+                console.log('Making force login API call...');
+
+                // Make API call to force login
+                fetch('/api/force-login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email })
+                })
+                    .then(response => {
+                        console.log('Force login response status:', response.status);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
                     })
-                        .then(response => response.json())
-                        .then(data => {
-                            hideLoading();
+                    .then(data => {
+                        console.log('Force login response data:', data);
+                        if (data.success) {
+                            // Remove modal and update UI
+                            document.getElementById('session-conflict-modal').remove();
+                            showLoggedInState();
+                            updateProfileUI(data.user);
+                        } else {
+                            throw new Error(data.error || 'Force login failed');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Force login error:', error);
+                        // Show error and restore buttons
+                        document.getElementById('force-login-error').textContent = 'An error occurred. Please try again.';
+                        document.getElementById('force-login-error').style.display = 'block';
+                        loading.style.display = 'none';
+                        if (buttons) buttons.style.display = 'flex';
+                    });
+            }
 
-                            if (data.success) {
-                                showSuccess(data.message);
-                            } else {
-                                showError(data.error || 'An error occurred while processing your request');
+            function formatTimeAgo(timestamp) {
+                try {
+                    const date = new Date(timestamp);
+                    const now = new Date();
+                    const diffMs = now - date;
+                    const diffMins = Math.floor(diffMs / 60000);
+                    const diffHours = Math.floor(diffMs / 3600000);
+
+                    if (diffMins < 1) {
+                        return 'Just now';
+                    } else if (diffMins < 60) {
+                        return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+                    } else if (diffHours < 24) {
+                        return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                    } else {
+                        return date.toLocaleString();
+                    }
+                } catch (e) {
+                    return timestamp;
+                }
+            }
+
+            function checkLoginStatus() {
+                fetch('/check-login-status')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.loggedIn) {
+                            showLoggedInState();
+                            fetchUserProfile();
+                            // Ensure we're on the index page
+                            if (window.location.pathname !== '/') {
+                                window.location.href = '/';
                             }
-                        })
-                        .catch(error => {
-                            hideLoading();
-                            console.error('Error:', error);
-                            showError('An error occurred while processing your request');
+                        } else {
+                            showLoggedOutState();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking login status:', error);
+                        showLoggedOutState();
+                    });
+            }
+
+            function fetchUserProfile() {
+                fetch('/api/user-profile')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch user profile');
+                        }
+                        return response.json();
+                    })
+                    .then(user => {
+                        updateProfileUI(user);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching user profile:', error);
+                        updateProfileUI({
+                            name: 'User',
+                            email: 'user@example.com',
+                            picture: '/static/default-profile.png'
                         });
-                }
+                    });
+            }
 
-                function isValidEmail(email) {
-                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                    return emailRegex.test(email);
+            function updateProfileUI(user) {
+                if (profileName) profileName.textContent = user.name || 'User';
+                if (profileEmail) profileEmail.textContent = user.email || 'user@example.com';
+                if (profileImage) profileImage.src = user.picture || '/static/default-profile.png';
+            }
+
+            function showLoggedInState() {
+                if (authContainer) authContainer.style.display = 'none';
+                if (expertsContainer) expertsContainer.style.display = 'block';
+                if (publicExpertsSection) publicExpertsSection.style.display = 'none';
+                if (chatButton) chatButton.style.display = 'none';
+                if (profileContainer) profileContainer.style.display = 'block';
+                if (document.getElementById('home-main-content')) {
+                    document.getElementById('home-main-content').style.display = 'block';
                 }
+                // Hide FAQ when logged in
+                if (document.getElementById('faq-section')) {
+                    document.getElementById('faq-section').style.display = 'none';
+                }
+                // Show home links section when logged in
+                if (document.getElementById('home-links-section')) {
+                    document.getElementById('home-links-section').style.display = 'block';
+                }
+            }
+            function showLoggedOutState() {
+                if (authContainer) authContainer.style.display = 'block';
+                if (expertsContainer) expertsContainer.style.display = 'none';
+                if (publicExpertsSection) publicExpertsSection.style.display = 'flex';
+                if (chatButton) chatButton.style.display = 'none';
+                if (profileContainer) profileContainer.style.display = 'none';
+                if (document.getElementById('home-main-content')) {
+                    document.getElementById('home-main-content').style.display = 'none';
+                }
+                // Show FAQ when logged out
+                if (document.getElementById('faq-section')) {
+                    document.getElementById('faq-section').style.display = 'block';
+                }
+                // Hide home links section when logged out
+                if (document.getElementById('home-links-section')) {
+                    document.getElementById('home-links-section').style.display = 'none';
+                }
+            }
+
+            function logout() {
+                showLoading();
+                fetch('/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            showLoggedOutState();
+                            hideLoading();
+                            showSuccess('Logged out successfully');
+                        } else {
+                            throw new Error('Logout failed');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error during logout:', error);
+                        hideLoading();
+                        showError('Logout failed. Please try again.');
+                    });
+            }
+
+            function showLoading() {
+                if (loadingSpinner) loadingSpinner.style.display = 'flex';
+            }
+
+            function hideLoading() {
+                if (loadingSpinner) loadingSpinner.style.display = 'none';
+            }
+
+            function showError(message) {
+                clearMessages();
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.textContent = message;
+                messageContainer.appendChild(errorDiv);
+            }
+
+            function showSuccess(message) {
+                clearMessages();
+                const successDiv = document.createElement('div');
+                successDiv.className = 'success-message';
+                successDiv.textContent = message;
+                messageContainer.appendChild(successDiv);
+            }
+
+            function clearMessages() {
+                messageContainer.innerHTML = '';
+            }
+
+            // Forgot password handler
+            document.getElementById('forgot-password').addEventListener('click', function (e) {
+                e.preventDefault();
+                handleForgotPassword();
             });
-        </script>
-        <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const wrapper   = document.querySelector('.public-experts-carousel');
-    const grid      = wrapper.querySelector('.public-expert-grid');
-    const cards     = Array.from(grid.querySelectorAll('.public-expert-card'));
-    if (!cards.length) return;
+
+            function handleForgotPassword() {
+                const email = document.getElementById('signin-email').value.trim();
+
+                if (!email) {
+                    showError('Please enter your email address first');
+                    return;
+                }
+
+                if (!isValidEmail(email)) {
+                    showError('Please enter a valid email address');
+                    return;
+                }
+
+                showLoading();
+                clearMessages();
+
+                fetch('/api/forgot-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email: email })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        hideLoading();
+
+                        if (data.success) {
+                            showSuccess(data.message);
+                        } else {
+                            showError(data.error || 'An error occurred while processing your request');
+                        }
+                    })
+                    .catch(error => {
+                        hideLoading();
+                        console.error('Error:', error);
+                        showError('An error occurred while processing your request');
+                    });
+            }
+
+            function isValidEmail(email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return emailRegex.test(email);
+            }
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const wrapper = document.querySelector('.public-experts-carousel');
+            const grid = wrapper.querySelector('.public-expert-grid');
+            const cards = Array.from(grid.querySelectorAll('.public-expert-card'));
+            if (!cards.length) return;
 
 
-    const original = [...cards];
-    original.forEach(c => grid.appendChild(c.cloneNode(true)));
-    original.forEach(c => grid.appendChild(c.cloneNode(true)));
+            const original = [...cards];
+            original.forEach(c => grid.appendChild(c.cloneNode(true)));
+            original.forEach(c => grid.appendChild(c.cloneNode(true)));
 
 
-    const getSetWidth = () => {
-      const style = window.getComputedStyle(cards[0]);
-      const cardW = cards[0].offsetWidth;
-      const ml = parseFloat(style.marginLeft);
-      const mr = parseFloat(style.marginRight);
-      const gap = parseFloat(window.getComputedStyle(grid).gap) || 0;
-      return (cardW + ml + mr + gap) * cards.length - gap;
-    };
-    let setWidth = getSetWidth();
+            const getSetWidth = () => {
+                const style = window.getComputedStyle(cards[0]);
+                const cardW = cards[0].offsetWidth;
+                const ml = parseFloat(style.marginLeft);
+                const mr = parseFloat(style.marginRight);
+                const gap = parseFloat(window.getComputedStyle(grid).gap) || 0;
+                return (cardW + ml + mr + gap) * cards.length - gap;
+            };
+            let setWidth = getSetWidth();
 
-    
-    let offset = 0;
-    const speed = 0.5;          
-    let rafId;
-    let dragging = false;
-    let startX = 0;
-    let startOffset = 0;
-    let hasDragged = false;
 
-    
-    const onResize = () => {
-      setWidth = getSetWidth();
-      offset = offset % setWidth;   
-    };
-    window.addEventListener('resize', onResize);
+            let offset = 0;
+            const speed = 0.5;
+            let rafId;
+            let dragging = false;
+            let startX = 0;
+            let startOffset = 0;
+            let hasDragged = false;
 
-    
-    const animate = () => {
-      offset += speed;
-      if (offset >= setWidth) offset = 0;
-      grid.style.transform = `translateX(-${offset}px)`;
-      rafId = requestAnimationFrame(animate);
-    };
-    animate();
 
-    
-    const start = e => {
-      dragging = true;
-      hasDragged = false;
-      startX = e.pageX || e.touches[0].pageX;
-      startOffset = offset;
-      grid.style.transition = 'none';
-      cancelAnimationFrame(rafId);
-    };
-    const move = e => {
-      if (!dragging) return;
-      const x = e.pageX || e.touches[0].pageX;
-      const walk = x - startX;
-      if (Math.abs(walk) > 5) hasDragged = true;
+            const onResize = () => {
+                setWidth = getSetWidth();
+                offset = offset % setWidth;
+            };
+            window.addEventListener('resize', onResize);
 
-      offset = startOffset - walk;
 
-    
-      const max = setWidth * 2;
-      if (offset < 0) offset = max + (offset % setWidth);
-      if (offset >= max) offset = offset % setWidth;
+            const animate = () => {
+                offset += speed;
+                if (offset >= setWidth) offset = 0;
+                grid.style.transform = `translateX(-${offset}px)`;
+                rafId = requestAnimationFrame(animate);
+            };
+            animate();
 
-      grid.style.transform = `translateX(-${offset}px)`;
-    };
-    const end = () => {
-      if (!dragging) return;
-      dragging = false;
-      grid.style.transition = 'transform 0.05s linear';
-      animate();
-    };
 
-    grid.addEventListener('mousedown', start);
-    grid.addEventListener('mousemove', move);
-    grid.addEventListener('mouseup', end);
-    grid.addEventListener('mouseleave', end);
+            const start = e => {
+                dragging = true;
+                hasDragged = false;
+                startX = e.pageX || e.touches[0].pageX;
+                startOffset = offset;
+                grid.style.transition = 'none';
+                cancelAnimationFrame(rafId);
+            };
+            const move = e => {
+                if (!dragging) return;
+                const x = e.pageX || e.touches[0].pageX;
+                const walk = x - startX;
+                if (Math.abs(walk) > 5) hasDragged = true;
 
-    grid.addEventListener('touchstart', start, {passive:true});
-    grid.addEventListener('touchmove', move, {passive:false});
-    grid.addEventListener('touchend', end);
+                offset = startOffset - walk;
 
-    
-    grid.querySelectorAll('.public-expert-card').forEach(card => {
-      card.addEventListener('click', e => {
-        if (hasDragged) { e.preventDefault(); return; }
-        if (window.innerWidth < 768) {
-          document.getElementById('auth-container')?.scrollIntoView({behavior:'smooth'});
-        }
-      });
-    });
 
-    
-    return () => {
-      window.removeEventListener('resize', onResize);
-      cancelAnimationFrame(rafId);
-    };
-  });
-</script>
+                const max = setWidth * 2;
+                if (offset < 0) offset = max + (offset % setWidth);
+                if (offset >= max) offset = offset % setWidth;
+
+                grid.style.transform = `translateX(-${offset}px)`;
+            };
+            const end = () => {
+                if (!dragging) return;
+                dragging = false;
+                grid.style.transition = 'transform 0.05s linear';
+                animate();
+            };
+
+            grid.addEventListener('mousedown', start);
+            grid.addEventListener('mousemove', move);
+            grid.addEventListener('mouseup', end);
+            grid.addEventListener('mouseleave', end);
+
+            grid.addEventListener('touchstart', start, { passive: true });
+            grid.addEventListener('touchmove', move, { passive: false });
+            grid.addEventListener('touchend', end);
+
+
+            grid.querySelectorAll('.public-expert-card').forEach(card => {
+                card.addEventListener('click', e => {
+                    if (hasDragged) { e.preventDefault(); return; }
+                    if (window.innerWidth < 768) {
+                        document.getElementById('auth-container')?.scrollIntoView({ behavior: 'smooth' });
+                    }
+                });
+            });
+
+
+            return () => {
+                window.removeEventListener('resize', onResize);
+                cancelAnimationFrame(rafId);
+            };
+        });
+    </script>
 </body>
+
 </html>
