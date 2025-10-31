@@ -12,18 +12,13 @@ import json
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-
-
 # Load environment variables
 load_dotenv()
-
 #Auth Utils
 from Services.auth import utils as AuthUtils
 from Services.auth.utils import login_required
-
 from Services.auth import user_auth as UserAuth
 from Services.payments import payment_auth as PayAuth
-
 
 # Configuration
 API_URL = os.getenv('API_URL')
@@ -49,7 +44,6 @@ app.config['SESSION_COOKIE_NAME'] = 'google-login-session'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = MODE == 'production'  # True in production
-
 app.logger.setLevel(logging.INFO)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
@@ -94,6 +88,42 @@ app.json_encoder = JSONEncoder
 # Start cleanup scheduler
 # schedule_cleanup()
 AuthUtils.schedule_cleanup() 
+
+
+def _content_security_policy():
+
+    return (
+        "default-src 'self'; "
+        "script-src 'self' https://accounts.google.com https://www.gstatic.com https://www.googleapis.com 'unsafe-inline' 'unsafe-eval'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data:; "
+        "connect-src 'self' https://accounts.google.com https://www.googleapis.com; "
+        "frame-src https://accounts.google.com;"
+    )
+
+@app.after_request
+def add_security_headers(response):
+    # Prevent MIME type sniffing
+    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    # Prevent clickjacking
+    response.headers.setdefault('X-Frame-Options', 'DENY')
+    # Referrer policy
+    response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+    # XSS protection (legacy, still useful for some older user agents)
+    response.headers.setdefault('X-XSS-Protection', '1; mode=block')
+    # Permissions policy — disable sensitive features by default
+    response.headers.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+    # Content Security Policy
+    response.headers.setdefault('Content-Security-Policy', _content_security_policy())
+
+    # HSTS only in production (requires HTTPS)
+    if MODE == 'production':
+        response.headers.setdefault('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload')
+        # Ensure cookies marked secure in production
+        app.config['SESSION_COOKIE_SECURE'] = True
+
+    return response 
 
 # --- Hardcoded upload page users ---
 UPLOAD_USERS = [
