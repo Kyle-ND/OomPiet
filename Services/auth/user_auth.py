@@ -40,7 +40,10 @@ def handle_signup(users_collection , initialize_new_user_dashboard_stats_func):
             'email': email,
             'password': hashed_password,
             'name': email.split('@')[0].title(),
-            'picture': '/static/default-profile.png',
+            'surname': '',
+            'birthdate': None,
+            'phone': '',
+            'picture': '/static/avatardefault.png',
             'auth_method': 'email',
             'created_at': datetime.now(timezone.utc),
             'last_login': datetime.now(timezone.utc),
@@ -122,12 +125,8 @@ def handle_signin(users_collection):
         return jsonify({'success': False, 'error': f'An internal server error occurred: {str(e)}'}), 500
     
 
-def handle_recover_password(users_collection):
+def handle_recover_password(users_collection,email):
     try:
-        data = request.get_json()
-
-        email = data.get('email', '').strip().lower()
-        
         # Validation
         if not email:
             return jsonify({'success': False, 'error': 'Email is required'}), 400
@@ -520,3 +519,4 @@ def handle_unsubscription(users_collection, PAYFAST_SANDBOX):
         return jsonify({'success': True})
     else:
         return jsonify({'success': False, 'error': 'Failed to cancel subscription'}), 500
+    

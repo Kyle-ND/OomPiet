@@ -206,7 +206,9 @@ def signin():
 @limiter.limit("5 per hour", key_func=get_login_identifier, error_message="Too many attempts. Please wait a moment and try again.")
 @limiter.limit("5 per hour", key_func=get_remote_address)
 def forgot_password():
-    return UserAuth.handle_recover_password(users_collection)
+    data = request.get_json()
+    email = data.get('email', '').strip().lower()
+    return UserAuth.handle_recover_password(users_collection,email)
 
 
 @app.route('/reset-password/<token>')
