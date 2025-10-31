@@ -16,6 +16,10 @@ def handle_signup(users_collection , initialize_new_user_dashboard_stats_func):
     try:
         data = request.get_json()
         email = data.get('email', '').strip().lower()
+        first_name = data.get('firstName', '').strip()
+        last_name = data.get('lastName', '').strip()
+        birthdate = data.get('birthdate', '').strip()
+        phone = data.get('phone', '').strip()
         password = data.get('password', '')
 
         # Validation
@@ -39,10 +43,10 @@ def handle_signup(users_collection , initialize_new_user_dashboard_stats_func):
         user_data = {
             'email': email,
             'password': hashed_password,
-            'name': email.split('@')[0].title(),
-            'surname': '',
-            'birthdate': None,
-            'phone': '',
+            'name': f"{first_name} {last_name}",
+            'surname': last_name,
+            'birthdate': birthdate,
+            'phone': phone,
             'picture': '/static/avatardefault.png',
             'auth_method': 'email',
             'created_at': datetime.now(timezone.utc),
