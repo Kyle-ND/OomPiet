@@ -780,7 +780,7 @@ body {
                         <div class="message-content">
                             Hallo daar! Ek’s Piet, a seasoned geotechnical engineer with deep roots in tailings, geology, and soil mechanics. I’ve been shaping South Africa’s mining and infrastructure landscape since the days of the first gold rush. Whether it's monitoring tailings storage facilities, overseeing complex site investigations or stabilising a sinkhole-prone site, I bring a practical mindset and a steady hand earned through years on the ground. Ask away, and I’ll help you build with confidence—from the first soil sample to final installation.
                         </div>
-                        <div class="message-time">12:00 PM</div>
+                        <div class="message-time" id="initial-assistant-time"></div>
                     </div>
                 </div>
             </div>
@@ -815,6 +815,11 @@ body {
             const chatSendBtn = document.getElementById('chat-send-btn');
             const chatMessages = document.getElementById('chat-messages');
             const loadingSpinner = document.querySelector('.loading-spinner');
+            const initialTimeEl = document.getElementById('initial-assistant-time');
+
+            if (initialTimeEl) {
+                initialTimeEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
             // Add this to your JavaScript after the document is loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Set the character image from the one you provided

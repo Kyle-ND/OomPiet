@@ -98,7 +98,7 @@ def _content_security_policy():
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data:; "
-        "connect-src 'self' https://accounts.google.com https://www.googleapis.com; "
+        "connect-src 'self' https://accounts.google.com https://www.googleapis.com https://oompiet.space/rag; "
         "frame-src https://accounts.google.com;"
     )
 

@@ -754,7 +754,7 @@ body {
                         <div class="message-content">
                             Hello and welcome—I'm Mr. Rakesh. I work at the intersection of power, possibility, and precision. Whether it's utility-scale generation or rooftop renewables, I help design and integrate energy systems that are safe, efficient, and future-ready. My experience spans transmission networks, embedded generation, energy storage, and smart technologies, always guided by a deep respect for standards, safety, and sustainability. I believe in calm leadership, clear communication, and engineering that empowers.
                         </div>
-                        <div class="message-time">12:00 PM</div>
+                        <div class="message-time" id="initial-assistant-time"></div>
                     </div>
                 </div>
             </div>
@@ -790,6 +790,11 @@ body {
             const chatSendBtn = document.getElementById('chat-send-btn');
             const chatMessages = document.getElementById('chat-messages');
             const loadingSpinner = document.querySelector('.loading-spinner');
+            const initialTimeEl = document.getElementById('initial-assistant-time');
+
+            if (initialTimeEl) {
+                initialTimeEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
             // Add this to your JavaScript after the document is loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Set the character image from the one you provided

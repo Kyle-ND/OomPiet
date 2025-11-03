@@ -754,7 +754,7 @@ body {
                         <div class="message-content">
                             I’m Sis Nandi—sharp in the lab, steady underground, and fearless in the face of complexity. I’ve worked across the full mine-to-metal value chain, from ore characterization and beneficiation to smelting, leaching, and electrorefining. Whether it’s flotation circuits or furnace design, I know how to read a process flow diagram and balance the numbers that matter. I'm a proud steward of the earth’s mineral wealth and a relentless voice for safety. I don’t sugarcoat risks, but I always chart a way forward.
                         </div>
-                        <div class="message-time">12:00 PM</div>
+                        <div class="message-time" id="initial-assistant-time"></div>
                     </div>
                 </div>
             </div>
@@ -790,6 +790,11 @@ body {
             const chatSendBtn = document.getElementById('chat-send-btn');
             const chatMessages = document.getElementById('chat-messages');
             const loadingSpinner = document.querySelector('.loading-spinner');
+            const initialTimeEl = document.getElementById('initial-assistant-time');
+
+            if (initialTimeEl) {
+                initialTimeEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
             // Add this to your JavaScript after the document is loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Set the character image from the one you provided
