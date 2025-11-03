@@ -747,7 +747,7 @@ body {
                         <div class="message-content">
                             Sanibonani! I’m Mama Dudu, a devoted advocate for clean water, climate resilience, and thriving ecosystems. My journey has taken me from grassroots wetlands restoration to national catchment management plans, always guided by the principle that nature and communities can flourish together. From the Vaal catchment to Tsitsikamma forest, I’ve led initiatives to safeguard our shared resources for generations to come. I bring a thoughtful approach grounded in science and sustainability. Let’s engineer with care — the kind that listens, learns, and lasts.
                         </div>
-                        <div class="message-time">12:00 PM</div>
+                        <div class="message-time" id="initial-assistant-time"></div>
                     </div>
                 </div>
             </div>
@@ -783,6 +783,11 @@ body {
             const chatSendBtn = document.getElementById('chat-send-btn');
             const chatMessages = document.getElementById('chat-messages');
             const loadingSpinner = document.querySelector('.loading-spinner');
+            const initialTimeEl = document.getElementById('initial-assistant-time');
+
+            if (initialTimeEl) {
+                initialTimeEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
             // Add this to your JavaScript after the document is loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Set the character image from the one you provided
