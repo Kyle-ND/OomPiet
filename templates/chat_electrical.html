@@ -535,7 +535,7 @@ body {
 /* Responsive styles */
 @media (max-width: 768px) {
     .navbar {
-        padding: 1rem;
+        padding: 0.5rem;
     }
     
     .navbar-brand {
@@ -554,6 +554,10 @@ body {
     .message {
         max-width: 90%;
     }
+
+    .message-content {
+    padding: 0.75rem;
+    }
     
     .character-container {
         position: relative;
@@ -561,6 +565,11 @@ body {
         right: 0;
         width: 80px;
         margin: 0 auto 1rem;
+    }
+
+    .character-title{
+        width: max-content;
+        transform: translateX(-27px);
     }
     
     .chat-messages {

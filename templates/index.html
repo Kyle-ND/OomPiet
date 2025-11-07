@@ -572,6 +572,14 @@
             margin: 0 auto 1rem;
             object-fit: cover;
         }
+        .mama {
+            transform: translateX(-5px);
+        }
+        .oom{
+            height: 160px;
+            width: 160px;
+            transform: translateY(-7px);
+        }
 
         .expert-name {
             font-size: 1.25rem;
@@ -981,7 +989,7 @@
             }
 
             .navbar {
-                padding: 1rem;
+                padding: 0.5rem;
                 min-height: 60px;
             }
 
@@ -1737,7 +1745,7 @@
                             <div class="public-expert-grid">
 
                                 <div class="public-expert-card">
-                                    <img src="/static/character3.png" alt="Mama Dudu" class="public-expert-image">
+                                    <img src="/static/character3.png" alt="Mama Dudu" class="public-expert-image mama">
                                     <div class="public-expert-name">Mama Dudu</div>
                                     <div class="expert-areas-heading">Areas of expertise include:</div>
                                     <ul class="expert-areas-list">
@@ -1747,7 +1755,7 @@
                                     </ul>
                                 </div>
                                 <div class="public-expert-card">
-                                    <img src="/static/character.png" alt="Oom Piet" class="public-expert-image">
+                                    <img src="/static/character.png" alt="Oom Piet" class="public-expert-image oom">
                                     <div class="public-expert-name">Oom Piet</div>
                                     <div class="expert-areas-heading">Areas of expertise include:</div>
                                     <ul class="expert-areas-list">
@@ -1989,7 +1997,7 @@
             <div class="experts-grid">
 
                 <div class="expert-card" onclick="window.location.href='/chat_water'">
-                    <img src="/static/character3.png" alt="Mama Dudu" class="expert-image">
+                    <img src="/static/character3.png" alt="Mama Dudu" class="expert-image mama">
                     <div class="expert-name">Mama Dudu</div>
                     <div class="expert-areas-heading1"><span style="padding-right: 1.2rem;"> Areas of expertise
                             include:</span></div>
@@ -2000,7 +2008,7 @@
                     </ul>
                 </div>
                 <div class="expert-card" onclick="window.location.href='/chat'">
-                    <img src="/static/character.png" alt="Oom Piet" class="expert-image">
+                    <img src="/static/character.png" alt="Oom Piet" class="expert-image oom">
                     <div class="expert-name">Oom Piet</div>
                     <div class="expert-areas-heading1"><span style="padding-right: 1.2rem;"> Areas of expertise
                             include:</span></div>
@@ -2035,7 +2043,7 @@
                 <div class="expert-card" onclick="window.location.href='/chat_mining'">
                     <img src="/static/character5.png" alt="Sis Nandi" class="expert-image">
                     <div class="public-expert-name">Sis Nandi</div>
-                    <div class="expert-areas-heading"><span style="padding-right: 1.2rem;">Areas of expertise
+                    <div class="expert-areas-heading1"><span style="padding-right: 1.2rem;">Areas of expertise
                             include:</span></div>
                     <ul class="expert-areas-list1">
                         <li>Metallurgical processes</li>
