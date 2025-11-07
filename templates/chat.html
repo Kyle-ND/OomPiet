@@ -540,6 +540,8 @@ body {
     padding: 4px 8px;
     border-radius: 12px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    width: max-content;
+    transform: translateX(-20px);
 }}
 @keyframes spin {
     0% { transform: rotate(0deg); }
@@ -559,7 +561,7 @@ body {
 /* Responsive styles */
 @media (max-width: 768px) {
     .navbar {
-        padding: 1rem;
+        padding: 0.5rem;
     }
     
     .navbar-brand {
@@ -579,6 +581,10 @@ body {
         max-width: 90%;
     }
     
+    .message-content {
+    padding: 0.75rem;
+    }
+
     .character-container {
         position: relative;
         top: 0;
