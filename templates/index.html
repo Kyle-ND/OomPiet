@@ -572,6 +572,14 @@
             margin: 0 auto 1rem;
             object-fit: cover;
         }
+        .mama {
+            transform: translateX(-5px);
+        }
+        .oom{
+            height: 160px;
+            width: 160px;
+            transform: translateY(-7px);
+        }
 
         .expert-name {
             font-size: 1.25rem;
@@ -875,8 +883,9 @@
 
             .faq-accordion {
                 width: 100%;
-                max-width: 600px;
+                max-width: 100vw;
                 margin: 1.5rem auto;
+                padding: 0 1rem;
             }
 
             .public-expert-grid {
@@ -933,6 +942,11 @@
                 flex: none;
             }
 
+            .public-experts-carousel{
+                overflow: hidden;   
+                width: 100vw;
+            }
+
             .public-experts-grid {
                 flex-direction: column;
                 align-items: center;
@@ -975,7 +989,7 @@
             }
 
             .navbar {
-                padding: 1rem;
+                padding: 0.5rem;
                 min-height: 60px;
             }
 
@@ -1731,7 +1745,7 @@
                             <div class="public-expert-grid">
 
                                 <div class="public-expert-card">
-                                    <img src="/static/character3.png" alt="Mama Dudu" class="public-expert-image">
+                                    <img src="/static/character3.png" alt="Mama Dudu" class="public-expert-image mama">
                                     <div class="public-expert-name">Mama Dudu</div>
                                     <div class="expert-areas-heading">Areas of expertise include:</div>
                                     <ul class="expert-areas-list">
@@ -1741,7 +1755,7 @@
                                     </ul>
                                 </div>
                                 <div class="public-expert-card">
-                                    <img src="/static/character.png" alt="Oom Piet" class="public-expert-image">
+                                    <img src="/static/character.png" alt="Oom Piet" class="public-expert-image oom">
                                     <div class="public-expert-name">Oom Piet</div>
                                     <div class="expert-areas-heading">Areas of expertise include:</div>
                                     <ul class="expert-areas-list">
@@ -1907,20 +1921,20 @@
                             <div class="form-group" style="display: flex; margin: 12px 0;">
                                 <div class="first-name">
                                     <label for="signup-email">First name</label>
-                                    <input type="email" id="signup-email" placeholder="First name" required>
+                                    <input type="text" id="signup-first-name" placeholder="First name" required>
                                 </div>
                                 <div>
                                     <label for="signup-email">Last name</label>
-                                    <input type="email" id="signup-email" placeholder="Last name" required>
+                                    <input type="text" id="signup-last-name" placeholder="Last name" required>
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label for="signup-email">Birthdate</label>
-                                <input type="date" id="signup-email" placeholder="Birthdate" required>
+                                <label for="signup-birthdate">Birthdate</label>
+                                <input type="date" id="signup-birthdate" placeholder="Birthdate" required>
                             </div>
                             <div class="form-group">
-                                <label for="signup-email">Phone number</label>
-                                <input type="text" id="signup-email" placeholder="Phone number" required>
+                                <label for="signup-phone">Phone number</label>
+                                <input type="text" id="signup-phone" placeholder="Phone number" required>
                             </div>
                             <div class="form-group">
                                 <label for="signup-email">Email</label>
@@ -1983,7 +1997,7 @@
             <div class="experts-grid">
 
                 <div class="expert-card" onclick="window.location.href='/chat_water'">
-                    <img src="/static/character3.png" alt="Mama Dudu" class="expert-image">
+                    <img src="/static/character3.png" alt="Mama Dudu" class="expert-image mama">
                     <div class="expert-name">Mama Dudu</div>
                     <div class="expert-areas-heading1"><span style="padding-right: 1.2rem;"> Areas of expertise
                             include:</span></div>
@@ -1994,7 +2008,7 @@
                     </ul>
                 </div>
                 <div class="expert-card" onclick="window.location.href='/chat'">
-                    <img src="/static/character.png" alt="Oom Piet" class="expert-image">
+                    <img src="/static/character.png" alt="Oom Piet" class="expert-image oom">
                     <div class="expert-name">Oom Piet</div>
                     <div class="expert-areas-heading1"><span style="padding-right: 1.2rem;"> Areas of expertise
                             include:</span></div>
@@ -2029,7 +2043,7 @@
                 <div class="expert-card" onclick="window.location.href='/chat_mining'">
                     <img src="/static/character5.png" alt="Sis Nandi" class="expert-image">
                     <div class="public-expert-name">Sis Nandi</div>
-                    <div class="expert-areas-heading"><span style="padding-right: 1.2rem;">Areas of expertise
+                    <div class="expert-areas-heading1"><span style="padding-right: 1.2rem;">Areas of expertise
                             include:</span></div>
                     <ul class="expert-areas-list1">
                         <li>Metallurgical processes</li>
@@ -2171,10 +2185,10 @@
 
                 function handleSignup(e) {
                     e.preventDefault();
-                    const firstName = document.getElementById('first-name').value.trim();
-                    const lastName = document.getElementById('last-name').value.trim();
-                    const birthdate = document.getElementById('birthdate').value.trim();
-                    const phoneNumber = document.getElementById('phone-number').value.trim();
+                    const firstName = document.getElementById('signup-first-name').value.trim();
+                    const lastName = document.getElementById('signup-last-name').value.trim();
+                    const birthdate = document.getElementById('signup-birthdate').value.trim();
+                    const phoneNumber = document.getElementById('signup-phone').value.trim();
                     const email = document.getElementById('signup-email').value;
                     const password = document.getElementById('signup-password').value;
                     const confirmPassword = document.getElementById('signup-confirm-password').value;

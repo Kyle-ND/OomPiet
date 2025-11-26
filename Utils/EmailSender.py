@@ -54,7 +54,6 @@ def send_password_reset_email(recipient_email: str, reset_link: str) -> Optional
             return "Failed to acquire access token. Check your credentials and permissions."
     except requests.exceptions.RequestException as e:
         error_message = f"Error acquiring token: {e.response.text if e.response else e}"
-        print(error_message)
         return error_message
 
 

@@ -172,7 +172,7 @@ body {
     height: 40px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid var(--primary-green);
+    border: 2px solid var(--primary-blue);
 }
 
 .profile-dropdown {
@@ -523,7 +523,7 @@ body {
 /* Responsive styles */
 @media (max-width: 768px) {
     .navbar {
-        padding: 1rem;
+        padding: 0.5rem;
     }
     
     .navbar-brand {
@@ -543,9 +543,17 @@ body {
     border-radius: 50%;
     padding-top: 10px;
  
-}
+    }
+    .character-title{
+        width: max-content;
+        transform: translateX(-27px);
+    }
     .message {
         max-width: 90%;
+    }
+
+    .message-content {
+    padding: 0.75rem;
     }
     
     .character-container {
@@ -661,7 +669,7 @@ body {
 .api-mode-btn {
     background: #fff;
     color: var(--primary-green, #e67e22);
-    border: 1px solid var(--primary-green, #e67e22);
+    border: none;
     border-radius: 6px;
     cursor: pointer;
     transition: background 0.2s, color 0.2s;
@@ -675,7 +683,7 @@ body {
     </style>
 </head>
 <body>
-    <!-- API Mode Modal (must be first in body, outside any hidden containers) -->
+    <!-- API mode modal (must be first in body, outside any hidden containers) -->
     <div id="api-mode-modal" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);z-index:2000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(5px);">
         <div style="background:#fff;padding:2.5rem;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);text-align:center;max-width:700px;width:95%;animation:fadeIn 0.5s ease-out;">
           <p style="margin-bottom:2rem;color:var(--neutral-medium);font-size:1.5rem;">You are currently enjoying the Premium Plan</p>
@@ -747,7 +755,7 @@ body {
                         <div class="message-content">
                             Sanibonani! I’m Mama Dudu, a devoted advocate for clean water, climate resilience, and thriving ecosystems. My journey has taken me from grassroots wetlands restoration to national catchment management plans, always guided by the principle that nature and communities can flourish together. From the Vaal catchment to Tsitsikamma forest, I’ve led initiatives to safeguard our shared resources for generations to come. I bring a thoughtful approach grounded in science and sustainability. Let’s engineer with care — the kind that listens, learns, and lasts.
                         </div>
-                        <div class="message-time">12:00 PM</div>
+                        <div class="message-time" id="initial-assistant-time"></div>
                     </div>
                 </div>
             </div>
@@ -783,6 +791,11 @@ body {
             const chatSendBtn = document.getElementById('chat-send-btn');
             const chatMessages = document.getElementById('chat-messages');
             const loadingSpinner = document.querySelector('.loading-spinner');
+            const initialTimeEl = document.getElementById('initial-assistant-time');
+
+            if (initialTimeEl) {
+                initialTimeEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
             // Add this to your JavaScript after the document is loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Set the character image from the one you provided
