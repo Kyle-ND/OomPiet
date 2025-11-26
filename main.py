@@ -6,6 +6,9 @@ import os
 import logging
 from dotenv import load_dotenv
 from pymongo import MongoClient
+import requests
+import uuid
+import re
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash
 import json
@@ -61,6 +64,22 @@ dashboard_stats_collection = db["dashboard_stats"]
 feedback_collection = db["feedback"]  # Add new collection for feedback
 sessions_collection = db["sessions"]  # New collection for session management
 password_reset_collection = db["password_reset_tokens"]  # New collection for password reset tokens
+collection = db["rag_queries"]
+doc = {
+  "conversation_id": "conv_test-user-1234",
+  "collection_name": "Concrete_docs",
+  "timestamp": datetime.now(timezone.utc),
+  "query": "hello",
+  "answer": "hi",
+  "model_used": "test-model",
+  "is_new_conversation": True,
+  "role": "assistant"
+}
+res = db['rag_queries'].insert_one(doc)
+print(res.inserted_id)
+
+
+
 
 # Initialize OAuth
 oauth = OAuth(app)
@@ -80,6 +99,8 @@ SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
 SMTP_USERNAME = os.getenv('SMTP_USERNAME')
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
 SMTP_FROM = os.getenv('SMTP_FROM', SMTP_USERNAME)
+
+ALLOWED_QDRANT_COLLECTIONS = ["Concrete_docs", "Tailings_engineer_docs", "Water_docs"]
 
 class JSONEncoder(json.JSONEncoder):
     def default(self, o):
@@ -339,7 +360,344 @@ def unsubscribe():
     return UserAuth.handle_unsubscription(users_collection, PAYFAST_SANDBOX)
 
 
+@app.route("/chat_history/<user_id>", methods=["GET"])
+def get_history_chat(user_id):
+    
+    try:
+        collection_name = request.args.get("collection_name")
+        limit = request.args.get("limit", type=int)
+        debug_mode = request.args.get('debug', 'false').lower() == 'true'
+
+        # Build a conversation_id pattern for this user and match any conversation
+        # belonging to this user (e.g. conv_<user_id> or conv_<user_id>_xxxx)
+        # Escape the user_id for safe regex construction
+        conversation_id_pattern = f"^conv_{re.escape(user_id)}"
+
+        # MongoDB query - use a regex so we capture all user's conversations
+        query = {"conversation_id": {"$regex": conversation_id_pattern}}
+
+        if collection_name and collection_name in ALLOWED_QDRANT_COLLECTIONS:
+            query["collection_name"] = collection_name
+
+        #Group messages by conversation_id
+        pipeline = [
+            {"$match": query},
+            {"$sort": {"timestamp":1}},
+            {
+                "$group":{
+                    "_id": {
+                        "conversation_id": "$conversation_id",
+                        "collection_name": "$collection_name"
+                    },
+                    "created_at": {"$min": "$timestamp"},
+                    "last_activity": {"$max": "$timestamp"},
+                    "message_count": {"$sum": 1},
+                    "messages": {
+                        "$push": {
+                            "query": "$query",
+                            "answer": "$answer",
+                            "timestamp": "$timestamp",
+                            "model_used": "$model_used",
+                            "is_new_conversation": "$is_new_conversation",
+                            "role": "$role"
+                        }
+                    }
+                }
+            },
+            {"$sort": {"last_activity": -1}}
+        ]
+
+        #Add limit if specified
+        if limit:
+            pipeline.append({"$limit": limit})
+
+        sessions = list(collection.aggregate(pipeline))
+
+        if debug_mode:
+                print(f"[DEBUG] Aggregation returned {len(sessions)} sessions")
+                if sessions:
+                    print(f"[DEBUG] First session structure: {sessions[0]}")
+
+        # Format response
+        response = {
+            "user_id": user_id,
+            # total sessions should reflect DB results, not the Flask `session` object
+            "total_session": len(sessions),
+            "session": []
+        }
+
+        for session_data in sessions:
+            formatted_session = {
+                "session_id": session_data["_id"]["conversation_id"],
+                "collection_name": session_data["_id"]["collection_name"],
+                "created_at": session_data["created_at"].isoformat() if session_data.get("created_at") else None,
+                "last_activity": session_data["last_activity"].isoformat() if session_data.get("last_activity") else None,
+                "message_count": session_data["message_count"],
+                "messages": []
+            }
+
+            #Format messages
+            for msg in session_data["messages"]:
+                formatted_session["messages"].append({
+                    "query": msg.get("query"),
+                    "answer": msg.get("answer"),
+                    "timestamp": msg.get("timestamp").isoformat() if isinstance(msg.get("timestamp"), datetime) else (str(msg.get("timestamp")) if msg.get("timestamp") else None),
+                    "model_used": msg.get("model_used"),
+                    "role": msg.get("role")
+                })
+
+            # Append this formatted session into the response list
+            response["session"].append(formatted_session)
+
+        return jsonify(response), 200
+    except Exception as e:
+        print(f"Error fetching chat history: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    
+
+@app.route("/chat_history/<user_id>/session/<conversation_id>", methods=["GET"])
+def get_specific_session(user_id, conversation_id):
+    try:
+        # Verify the conversation belongs to this user (conversation ids start with conv_<user_id>)
+        expected_prefix = f"conv_{user_id}"
+        if not conversation_id.startswith(expected_prefix):
+            return jsonify({"error": "Conversation ID does not match user ID"}), 403
+        
+        # Check if user wants to include retrieved chunks
+        include_chunks = request.args.get('include_chunks', 'false').lower() == 'true'
+        
+        # Fetch all messages for this conversation
+        messages = list(collection.find(
+            {"conversation_id": conversation_id}
+        ).sort("timestamp", 1))
+        
+        if not messages:
+            return jsonify({
+                "session_id": conversation_id,
+                "user_id": user_id,
+                "message_count": 0,
+                "messages": []
+            }), 200
+        
+        # Format response
+        response = {
+            "session_id": conversation_id,
+            "user_id": user_id,
+            "collection_name": messages[0].get("collection_name"),
+            "created_at": messages[0].get("timestamp").isoformat() if isinstance(messages[0].get("timestamp"), datetime) else (str(messages[0].get("timestamp")) if messages[0].get("timestamp") else None),
+            "last_activity": messages[-1].get("timestamp").isoformat() if isinstance(messages[-1].get("timestamp"), datetime) else (str(messages[-1].get("timestamp")) if messages[-1].get("timestamp") else None),
+            "message_count": len(messages),
+            "messages": []
+        }
+        
+        for msg in messages:
+            message_data = {
+                "query": msg.get("query"),
+                "answer": msg.get("answer"),
+                "timestamp": msg.get("timestamp").isoformat() if isinstance(msg.get("timestamp"), datetime) else (str(msg.get("timestamp")) if msg.get("timestamp") else None),
+                "model_used": msg.get("model_used"),
+                "is_new_conversation": msg.get("is_new_conversation"),
+                "role": msg.get("role")
+            }
+            
+            # Optionally include retrieved chunks
+            if include_chunks:
+                message_data["retrieved_chunks"] = msg.get("retrieved_chunks", [])
+            
+            response["messages"].append(message_data)
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        print(f"Error fetching specific session: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    
+
+@app.route("/chat_history/<user_id>/delete", methods=["DELETE"])
+def delete_chat_history(user_id):
+    try:
+        conversation_id_param = request.args.get('conversation_id')
+        collection_name_filter = request.args.get('collection_name')
+        
+        # Build delete query
+        if conversation_id_param:
+            # Delete specific session - verify it belongs to user
+            expected_prefix = f"conv_{user_id}"
+            if not conversation_id_param.startswith(expected_prefix):
+                return jsonify({"error": "Conversation ID does not match user ID"}), 403
+
+            query = {"conversation_id": conversation_id_param}
+        else:
+            # Delete all sessions for user (match any conversation starting with conv_<user_id>)
+            query = {"conversation_id": {"$regex": f"^conv_{re.escape(user_id)}"}}
+        
+        # Add collection filter if specified and valid
+        if collection_name_filter and collection_name_filter in ALLOWED_QDRANT_COLLECTIONS:
+            query["collection_name"] = collection_name_filter
+        
+        # Execute deletion
+        result = collection.delete_many(query)
+        
+        return jsonify({
+            "status": "success",
+            "deleted_count": result.deleted_count,
+            "user_id": user_id
+        }), 200
+        
+    except Exception as e:
+        print(f"Error deleting chat history: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/rag', methods=['POST'])
+@login_required
+def proxy_rag():
+
+    try:
+        data = request.get_json() or {}
+        query_text = data.get('query')
+        collection_name = data.get('collection_name')
+
+        # Use authenticated user's id/email to prevent spoofing. The login_required
+        # decorator ensures `session['user']` exists.
+        auth_user = session.get('user', {})
+        user_id = auth_user.get('id') or auth_user.get('email') or 'unknown'
+        conversation_id = data.get('conversation_id')
+
+        # Generate a new conversation id if not provided
+        is_new = False
+        if not conversation_id:
+            conversation_id = f"conv_{user_id}_{uuid.uuid4().hex[:8]}"
+            is_new = True
+        else:
+            # Ensure conversation id belongs to this user (prefix check)
+            if not str(conversation_id).startswith(f"conv_{user_id}"):
+                # Prevent cross-user conversation manipulation
+                return jsonify({"error": "conversation_id does not belong to authenticated user"}), 403
+
+        # Basic validation
+        if not query_text:
+            return jsonify({"error": "query is required"}), 400
+
+        # Forward to external RAG service (configurable via RAG_SERVICE_URL)
+        rag_url = os.getenv('RAG_SERVICE_URL') or 'https://oompiet.space/rag'
+        forward_payload = data.copy()
+        forward_payload['conversation_id'] = conversation_id
+
+        # Persist the user's message first (so we always have the user's side recorded)
+        now = datetime.now(timezone.utc)
+        try:
+            user_doc = {
+                "conversation_id": conversation_id,
+                "collection_name": collection_name,
+                "timestamp": now,
+                "query": query_text,
+                "answer": None,
+                "model_used": None,
+                "is_new_conversation": is_new,
+                "role": "user"
+            }
+            collection.insert_one(user_doc)
+        except Exception as db_exc:
+            app.logger.exception("Error saving user message to rag_queries")
+
+        try:
+            resp = requests.post(rag_url, json=forward_payload, timeout=30)
+            resp.raise_for_status()
+            resp_json = resp.json()
+        except Exception as exc:
+            # If forwarding failed, log and return error; user message is already persisted
+            app.logger.exception("Error forwarding to RAG service")
+            resp_json = {"error": str(exc)}
+
+        # Persist the assistant reply if available
+        try:
+            if isinstance(resp_json, dict) and resp_json.get('answer'):
+                assistant_doc = {
+                    "conversation_id": conversation_id,
+                    "collection_name": collection_name,
+                    "timestamp": datetime.now(timezone.utc),
+                    "query": None,
+                    "answer": resp_json.get('answer'),
+                    "model_used": resp_json.get('model_used'),
+                    "is_new_conversation": False,
+                    "role": "assistant"
+                }
+                collection.insert_one(assistant_doc)
+        except Exception as db_exc:
+            app.logger.exception("Error saving assistant message to rag_queries")
+
+        # Ensure the response contains the conversation id so client can continue
+        if isinstance(resp_json, dict):
+            resp_json['conversation_id'] = conversation_id
+
+        status_code = 200 if isinstance(resp_json, dict) and not resp_json.get('error') else 500
+        return jsonify(resp_json), status_code
+
+    except Exception as e:
+        print(f"Error in /api/rag proxy: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/rag/sessions', methods=['GET'])
+@login_required
+def list_rag_sessions():
+  
+    try:
+        auth_user = session.get('user', {})
+        user_id = auth_user.get('id') or auth_user.get('email')
+        if not user_id:
+            return jsonify({"error": "Authenticated user id not found in session"}), 403
+
+        collection_name = request.args.get('collection_name')
+        limit = request.args.get('limit', type=int) or 20
+
+        match = {"conversation_id": {"$regex": f"^conv_{user_id}"}}
+        if collection_name and collection_name in ALLOWED_QDRANT_COLLECTIONS:
+            match["collection_name"] = collection_name
+
+        pipeline = [
+            {"$match": match},
+            {"$group": {
+                "_id": "$conversation_id",
+                "created_at": {"$min": "$timestamp"},
+                "last_activity": {"$max": "$timestamp"},
+                "message_count": {"$sum": 1},
+                "collection_name": {"$first": "$collection_name"}
+            }},
+            {"$sort": {"last_activity": -1}},
+            {"$limit": limit}
+        ]
+
+        results = list(collection.aggregate(pipeline))
+
+        sessions_list = []
+        for r in results:
+            sessions_list.append({
+                "session_id": r["_id"],
+                "collection_name": r.get("collection_name"),
+                "created_at": r.get("created_at").isoformat() if r.get("created_at") else None,
+                "last_activity": r.get("last_activity").isoformat() if r.get("last_activity") else None,
+                "message_count": r.get("message_count", 0)
+            })
+
+        response = {
+            "user_id": user_id,
+            "total_sessions": len(sessions_list),
+            "sessions": sessions_list
+        }
+
+        return jsonify(response), 200
+
+    except Exception as e:
+        app.logger.exception("Error listing RAG sessions")
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
     # Create static folder if it doesn't exist
-    
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000,debug = True)
