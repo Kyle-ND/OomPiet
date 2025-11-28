@@ -60,9 +60,7 @@ def remove_user_session(user_email):
 
 def get_active_session_info(user_email):
     """Get information about the active session for a user"""
-    current_app.logger.info(f"Getting active session info for user: {user_email}")
-    session_data = sessions_collection.find_one({"user_email": user_email})
-    current_app.logger.info(f"Session data found: {session_data is not None}")
+    session_data = sessions_collection.find_one({"email": user_email})
     
     if session_data:
         # Check if session is expired
@@ -104,9 +102,7 @@ def validate_session(session_id, user_email):
         return False
 
     # Debug: print what we got
-    print(f"DEBUG: created_at type: {type(created_at)}, value: {created_at}")
-    if isinstance(created_at, datetime):
-        print(f"DEBUG: created_at.tzinfo: {created_at.tzinfo}")
+
 
     try:
         # If created_at is a string, parse it
@@ -128,7 +124,6 @@ def validate_session(session_id, user_email):
     # ALWAYS make timezone-aware if it's naive (no matter what happened above)
     if hasattr(created_at, 'tzinfo') and created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=timezone.utc)
-        print(f"DEBUG: Made timezone-aware: {created_at}")
 
     # Check last activity
     if datetime.now(timezone.utc) - created_at > timedelta(hours=24):
@@ -280,20 +275,25 @@ def verify_payfast_itn(data):
         return False
     
 
-def cleanup_expired_sessions():
-    """Clean up expired sessions (older than 24 hours)"""
+
+
+def cleanup_user_expired_sessions(user_email):
+    """Clean up expired sessions for a specific user (older than 24 hours of inactivity)"""
     try:
         cutoff_time = datetime.now(timezone.utc) - timedelta(hours=24)
-        result = sessions_collection.delete_many({
-            "created_at": {"$lt": cutoff_time}
-        })
-        current_app.logger.info(f"Cleaned up {result.deleted_count} expired sessions")
         
-        # Also cleanup expired reset tokens
-        cleanup_expired_reset_tokens()
-
+        # Delete sessions with last_activity older than 24 hours
+        result = sessions_collection.delete_many({
+            "user_email": user_email,
+            "last_activity": {"$lt": cutoff_time}
+        })
+        
+        current_app.logger.info(f"Cleaned up {result.deleted_count} expired sessions for user: {user_email}")
+        return result.deleted_count
+        
     except Exception as e:
-        current_app.logger.error(f"Error cleaning up expired sessions: {str(e)}")
+        current_app.logger.error(f"Error cleaning up user sessions: {str(e)}")
+        return 0
 
 
 # Schedule cleanup task (run every hour)

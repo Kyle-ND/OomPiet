@@ -63,11 +63,7 @@ def handle_signup(users_collection , initialize_new_user_dashboard_stats_func):
         return jsonify({'success': False, 'error': 'An error occurred during registration'}), 500
     
 
-
-
-
 def handle_signin(users_collection):
-
     try:
         data = request.get_json()
         email = data.get('email', '').strip().lower()
@@ -90,27 +86,13 @@ def handle_signin(users_collection):
         if not check_password_hash(user['password'], password):
             return jsonify({'success': False, 'error': 'Invalid email or password'}), 401
 
-        # Check if user already has an active session
-        current_app.logger.info(f"Checking for active session for user: {email}")
+        # Clean up expired sessions and remove any active session
+        AuthUtils.cleanup_user_expired_sessions(email)
         active_session = AuthUtils.get_active_session_info(email)
-        current_app.logger.info(f"Active session found: {active_session is not None}")
-
         if active_session:
-            current_app.logger.info(f"Session conflict detected for user: {email}")
-            # Return session conflict information
-            return jsonify({
-                'success': False,
-                'error': 'session_conflict',
-                'message': 'This account is already active on another device. Do you want to continue and log out the other session?',
-                'session_info': {
-                    'user_agent': active_session['user_agent'],
-                    'ip_address': active_session['ip_address'],
-                    'last_activity': active_session['last_activity'].isoformat()
-                }
-            }), 409
+            AuthUtils.remove_user_session(email)
 
         # If no session conflict, continue with successful login
-        # Set session data
         session.permanent = True
         session['user'] = {
             'email': user['email'],
@@ -127,6 +109,74 @@ def handle_signin(users_collection):
     except Exception as e:
         current_app.logger.error(f"Signin error: {str(e)}")
         return jsonify({'success': False, 'error': f'An internal server error occurred: {str(e)}'}), 500
+
+
+# def handle_signin(users_collection):
+
+#     try:
+#         data = request.get_json()
+#         email = data.get('email', '').strip().lower()
+#         password = data.get('password', '')
+
+#         # Validation
+#         if not email or not password:
+#             return jsonify({'success': False, 'error': 'Email and password are required'}), 400
+
+#         # Find user
+#         user = users_collection.find_one({'email': email})
+#         if not user:
+#             return jsonify({'success': False, 'error': 'Invalid email or password'}), 401
+
+#         # Check if user signed up with email/password (not Google)
+#         if user.get('auth_method') != 'email':
+#             return jsonify({'success': False, 'error': 'Please sign in with Google'}), 401
+
+#         # Verify password
+#         if not check_password_hash(user['password'], password):
+#             return jsonify({'success': False, 'error': 'Invalid email or password'}), 401
+        
+#          # **NEW: Clean up expired sessions first**
+#         current_app.logger.info(f"Cleaning up expired sessions for user: {email}")
+#         AuthUtils.cleanup_user_expired_sessions(email)
+
+#         # Check if user already has an active session
+#         current_app.logger.info(f"Checking for active session for user: {email}")
+#         active_session = AuthUtils.get_active_session_info(email)
+#         current_app.logger.info(f"Active session found: {active_session is not None}")
+
+#         if active_session:
+#             current_app.logger.info(f"Session conflict detected for user: {email}")
+#             # Return session conflict information
+#             return jsonify({
+#                 'success': False,
+#                 'error': 'session_conflict',
+#                 'message': 'This account is already active on another device. Do you want to continue and log out the other session?',
+#                 'session_info': {
+#                     'user_agent': active_session['user_agent'],
+#                     'ip_address': active_session['ip_address'],
+#                     'last_activity': active_session['last_activity'].isoformat()
+#                 }
+#             }), 409
+
+#         # If no session conflict, continue with successful login
+#         # Set session data
+#         session.permanent = True
+#         session['user'] = {
+#             'email': user['email'],
+#             'name': user.get('name', ''),
+#             'picture': user.get('picture', '/static/default-profile.png'),
+#             'auth_method': user.get('auth_method', 'email'),
+#             'premium': user.get('premium', False)
+#         }
+#         session['session_id'] = AuthUtils.create_user_session(email)
+
+#         current_app.logger.info(f"Login successful for user: {email}")
+#         return jsonify({'success': True, 'message': 'Login successful', 'user': session['user']}), 200
+
+#     except Exception as e:
+#         current_app.logger.error(f"Signin error: {str(e)}")
+#         return jsonify({'success': False, 'error': f'An internal server error occurred: {str(e)}'}), 500
+
     
 
 def handle_recover_password(users_collection,email):
@@ -207,19 +257,13 @@ def handle_upload_user(UPLOAD_USERS):
 
 def handle_login(users_collection):
     try:
-        current_app.logger.info("Force login endpoint called")
         data = request.get_json()
         user_email = data.get('email')
         
-        current_app.logger.info(f"Force login request for email: {user_email}")
-        
         if not user_email:
-            current_app.logger.error("Force login failed: Email is required")
             return jsonify({'success': False, 'error': 'Email is required'}), 400
         
-        # Remove existing session
-        current_app.logger.info(f"Removing existing sessions for user: {user_email}")
-        # remove_user_session(user_email)
+        # Remove all existing sessions for this user
         AuthUtils.remove_user_session(user_email)
         
         # Get user data
@@ -245,10 +289,6 @@ def handle_login(users_collection):
         }
         session['session_id'] = session_id
         
-        # Clear session conflict info
-        session.pop('session_conflict', None)
-        
-        current_app.logger.info(f"Force login successful for user: {user_email}")
         return jsonify({
             'success': True,
             'user': session['user']
@@ -356,13 +396,117 @@ def handle_reset_password(users_collection):
         return jsonify({'success': False, 'error': 'An error occurred while resetting your password'}), 500
     
 
-
-def handle_google_callback(google, users_collection, initialize_new_user_dashboard_stats):
-
+def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_dashboard_stats):
+ 
     # Get redirect URL from query parameters
-    redirect_url = session.get("redirect_url", "url_for('index')")
+    redirect_url = session.get("redirect_url", "http://localhost:3000/mentormate-homepage")
     
     try:
+        # Verify state parameter to prevent CSRF attacks
+        state = request.args.get('state')
+        stored_state = session.get('oauth_state')
+
+        if not state or not stored_state or state != stored_state:
+            raise ValueError("State verification failed")
+  
+        session.pop('oauth_state', None)
+
+        token = microsoft.authorize_access_token()
+        if not token:
+            raise ValueError("Failed to get access token")
+
+        resp = microsoft.get('https://graph.microsoft.com/v1.0/me', token=token)
+        user_info = resp.json()
+        
+        if not user_info or 'mail' not in user_info and 'userPrincipalName' not in user_info:
+            raise ValueError("Failed to get user info from Microsoft")
+
+        user_email = user_info.get('mail') or user_info.get('userPrincipalName')
+        
+        if not user_email:
+            raise ValueError("No email found in user info")
+
+        # Check if user already has an active session - if so, remove it
+        active_session = AuthUtils.get_active_session_info(user_email)
+        if active_session:
+            AuthUtils.remove_user_session(user_email)
+        
+        # Fetch profile picture using the helper function
+        profile_picture = get_microsoft_profile_picture(microsoft, token)
+
+        user_data = {
+            "name": user_info.get("displayName", "User"),
+            "email": user_email,
+            "picture": profile_picture,
+            "last_login": datetime.now(timezone.utc),
+            "auth_method": "microsoft"
+        }
+
+        result = users_collection.update_one(
+            {"email": user_data["email"]},
+            {"$set": user_data},
+            upsert=True
+        )
+
+        if result.upserted_id:
+            initialize_new_user_dashboard_stats(user_data["email"])
+
+        db_user = users_collection.find_one({"email": user_data["email"]})
+
+        session_id = AuthUtils.create_user_session(user_data["email"])
+
+        session.permanent = True
+        session['user'] = {
+            'email': db_user['email'],
+            'name': db_user['name'],
+            'picture': db_user['picture'],
+            'auth_method': db_user['auth_method'],
+            'premium': db_user.get('premium', False)
+        }
+        session['session_id'] = session_id
+        session.modified = True
+        
+        params = {
+            "success": "true",
+            "email": db_user["email"],
+            "name": db_user["name"]
+        }
+
+        return redirect(f"{redirect_url}?{urlencode(params)}")
+
+    except Exception as e:
+        current_app.logger.error(f"Error in Microsoft callback: {str(e)}")
+        session.clear()
+
+        return redirect(f"{redirect_url}?error=auth_failed&message={str(e)}")
+    
+def get_microsoft_profile_picture(microsoft, token):
+    """Fetch user's profile picture from Microsoft Graph"""
+    try:
+        # Try to get the photo
+        photo_resp = microsoft.get(
+            'https://graph.microsoft.com/v1.0/me/photo/$value',
+            token=token
+        )
+        
+        if photo_resp.status_code == 200:
+            # Convert binary image data to base64
+            import base64
+            photo_data = base64.b64encode(photo_resp.content).decode('utf-8')
+            return f"data:image/jpeg;base64,{photo_data}"
+    except Exception as e:
+        current_app.logger.warning(f"Could not fetch Microsoft profile picture: {str(e)}")
+    
+    return "/static/default-profile.png"
+
+
+
+def handle_google_callback(google, users_collection, initialize_new_user_dashboard_stats):
+    # Get redirect URL from session (set during login initiation)
+    redirect_url = session.get("redirect_url", "http://localhost:3000/mentormate-homepage")
+    
+    try:
+        # Verify state
         state = request.args.get('state')
         stored_state = session.get('oauth_state')
 
@@ -371,6 +515,7 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         
         session.pop('oauth_state', None)
 
+        # Get token
         token = google.authorize_access_token()
         if not token:
             raise ValueError("Failed to get access token")
@@ -382,27 +527,18 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         if not user_info or 'email' not in user_info:
             raise ValueError("Failed to get user info")
 
-        # Check if user already has an active session
-        active_session = AuthUtils.get_active_session_info(user_info["email"]) #get_active_session_info(user_info["email"])
+        # Check if user already has an active session - if so, remove it
+        active_session = AuthUtils.get_active_session_info(user_info["email"])
         if active_session:
-            # Store session conflict info in session for later handling
-            session['session_conflict'] = {
-                'user_email': user_info["email"],
-                'session_info': {
-                    'user_agent': active_session['user_agent'],
-                    'ip_address': active_session['ip_address'],
-                    'last_activity': active_session['last_activity'].isoformat()
-                }
-            }
-            return redirect(url_for('session_conflict'))
+            AuthUtils.remove_user_session(user_info["email"])
 
         # Store user data in MongoDB
         user_data = {
             "name": user_info.get("name", "User"),
             "email": user_info["email"],
-            "picture": user_info.get("picture", "/static/default-profile.png"),
+            "picture": get_google_profile_picture(google, token) if not user_info.get("picture") else user_info.get("picture", "/static/default-profile.png"),
             "last_login": datetime.now(timezone.utc),
-            "auth_method": "google"  # Add auth method
+            "auth_method": "google"
         }
 
         # Update user or create if doesn't exist
@@ -420,7 +556,7 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         db_user = users_collection.find_one({"email": user_data["email"]})
 
         # Create new session
-        session_id = AuthUtils.create_user_session(user_data["email"]) #create_user_session(user_data["email"])
+        session_id = AuthUtils.create_user_session(user_data["email"]) 
 
         # Set session, include premium status if present
         session.permanent = True
@@ -433,23 +569,39 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         }
         session['session_id'] = session_id
         session.modified = True
-
-        current_app.logger.info(f"Google login successful for user: {user_data['email']}")
-
-        params = {
-            "success" : "true",
-            "email" : db_user["email"],
-            "name" : db_user["name"]
-        }
-
-        # Redirect to frontend with success and user info
-        return redirect(f"{redirect_url}?{urlencode(params)}")
+        
+        # Redirect to frontend with user info including picture
+        from urllib.parse import quote
+        redirect_params = f"email={quote(db_user['email'])}&name={quote(db_user['name'])}&picture={quote(db_user.get('picture', '/static/default-profile.png'))}"
+        final_redirect = f"{redirect_url}?{redirect_params}"
+        
+        # Flask will automatically set the session cookie with the configured domain
+        return redirect(final_redirect)
 
     except Exception as e:
         current_app.logger.error(f"Error in Google callback: {str(e)}")
         session.clear()
-
+        
+        # Use the redirect_url defined at the top
         return redirect(f"{redirect_url}?error=auth_failed&message={str(e)}")
+    
+def get_google_profile_picture(google, token):
+
+    try:
+        # Get user info which includes the picture URL
+        resp = google.get('https://www.googleapis.com/oauth2/v3/userinfo', token=token)
+        
+        if resp.status_code == 200:
+            user_info = resp.json()
+            picture_url = user_info.get('picture')
+            
+            if picture_url:
+                return picture_url
+                
+    except Exception as e:
+        current_app.logger.warning(f"Could not fetch Google profile picture: {str(e)}")
+
+    return "/static/default-profile.png"
     
 def handle_user_profile(users_collection, db):
     user = session.get('user')

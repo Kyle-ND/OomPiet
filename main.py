@@ -1,6 +1,7 @@
 from datetime import timezone,timedelta,datetime
 from bson import ObjectId
-from flask import Flask, render_template, jsonify, redirect, request, url_for, session, send_from_directory, flash
+from flask import Flask, jsonify, redirect, request, url_for, session, send_from_directory
+from flask_session import Session
 from authlib.integrations.flask_client import OAuth
 import os
 import logging
@@ -8,7 +9,9 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 import requests
 import uuid
+import msal
 import re
+import secrets
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash
 import json
@@ -31,6 +34,8 @@ GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
 SECRET_KEY = os.getenv('SECRET_KEY')  # Default for development
 MONGO_URI = os.getenv('MONGO_URI')
 MODE = os.getenv('MODE', 'development')
+TENANT_ID = os.getenv('TID')
+CLIENT_SECRET = os.getenv('CID')
 
 # PayFast Configuration
 PAYFAST_MERCHANT_ID = os.getenv('PAYFAST_MERCHANT_ID')
@@ -39,14 +44,36 @@ PAYFAST_PASSPHRASE = os.getenv('PAYFAST_PASSPHRASE', '')
 PAYFAST_SANDBOX = os.getenv('PAYFAST_SANDBOX', 'true').lower() == 'true'
 
 app = Flask(__name__, static_folder='static')
-CORS(app)
+
+CORS(app, 
+     origins=["http://localhost:3000"],  # Specific origins for credentials
+     methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+     expose_headers=["Content-Type", "Authorization"],
+     supports_credentials=True,  # Enable credentials with specific origins
+     max_age=3600
+)
+
 
 
 app.secret_key = SECRET_KEY
+
+# Configure server-side sessions with filesystem (simple, no MongoDB compatibility issues)
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_FILE_DIR'] = os.path.join(os.path.dirname(__file__), 'flask_session')
 app.config['SESSION_COOKIE_NAME'] = 'google-login-session'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE'] = MODE == 'production'  # True in production
+app.config['SESSION_USE_SIGNER'] = True  # Sign the session ID cookie
+# For development: Share cookies across localhost ports by setting domain to 'localhost'
+# This allows localhost:3000 and localhost:5000 to share the same session cookie
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Lax allows same-site requests
+app.config['SESSION_COOKIE_SECURE'] = False  # False for http://localhost (use True in production with HTTPS)
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_DOMAIN'] = 'localhost'  # Share across all localhost ports
+
+# Initialize Flask-Session (server-side sessions)
+Session(app)
+
 app.logger.setLevel(logging.INFO)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
@@ -86,6 +113,24 @@ google = oauth.register(
         'scope': 'openid email profile',
         'prompt': 'select_account'
     }
+)
+
+# Configure Microsoft OAuth
+microsoft = oauth.register(
+    name='microsoft',
+    client_id=TENANT_ID,
+    client_secret=CLIENT_SECRET,  
+    authorize_url=f'https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/authorize',
+    authorize_params=None,
+    access_token_url=f'https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token',
+    access_token_params=None,
+    refresh_token_url=None,
+    redirect_uri='YOUR_CALLBACK_URL',  # e.g., 'http://localhost:5000/auth/microsoft/callback'
+    client_kwargs={
+        'scope': 'openid email profile User.Read',
+        'token_endpoint_auth_method': 'client_secret_post',
+    },
+    server_metadata_url=f'https://login.microsoftonline.com/{TENANT_ID}/v2.0/.well-known/openid-configuration',
 )
 
 SMTP_SERVER = os.getenv('SMTP_SERVER')
@@ -170,18 +215,7 @@ limiter = Limiter(
 def upload_login():
     return UserAuth.upload_user(UPLOAD_USERS)
 
-# Routes
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/detail')
-def detail():
-    return render_template('detail.html')
-
-@app.route('/terms')
-def terms():
-    return render_template('terms.html')
+# Routes - Templates removed, using React frontend
 
 
 
@@ -213,6 +247,16 @@ def signup():
 
 
 
+@app.route('/api/check-session', methods=['GET'])
+def check_session():
+    """Check if user has active session"""
+    is_authenticated = 'user' in session
+    return jsonify({
+        'authenticated': is_authenticated,
+        'user': session.get('user', None) if is_authenticated else None
+    }), 200
+
+
 @app.route('/api/signin', methods=['POST'])
 @limiter.limit("5 per minute",  key_func= get_login_identifier, error_message="Too many login attempts. Please wait a moment and try again.")
 @limiter.limit("10 per minute",  key_func= get_remote_address, error_message="Too many login attempts. Please wait a moment and try again.")
@@ -232,17 +276,6 @@ def forgot_password():
     return UserAuth.handle_recover_password(users_collection,email)
 
 
-@app.route('/reset-password/<token>')
-def reset_password_page(token):
-    """Display password reset form"""
-    # Validate token
-    token_data = AuthUtils.validate_reset_token(token) #validate_reset_token(token)
-    if not token_data:
-        return render_template('reset_password.html', error="Invalid or expired reset link")
-    
-    return render_template('reset_password.html', token=token, email=token_data['email'])
-
-
 @app.route('/api/reset-password', methods=['POST'])
 @limiter.limit("5 per hour", key_func=get_remote_address, error_message="Changed password too many times. Please wait a moment and try again.")
 def reset_password():
@@ -250,12 +283,13 @@ def reset_password():
 
 
 @app.route('/login')
+@app.route('/login/google')  # Add explicit Google login route
 # @limiter.limit("5 per minute")
 def login():
     session.clear()
 
-    # Fetching the stored redirect_url in the session
-    session['redirect_url'] = url_for("index")
+    # Redirect to frontend callback page after login
+    session['redirect_url'] = "http://localhost:3000/google-callback"
 
     session['oauth_state'] = os.urandom(16).hex()
     session.modified = True
@@ -264,6 +298,28 @@ def login():
         redirect_uri=redirect_uri,
         state=session['oauth_state']
     )
+
+@app.route('/login/microsoft')
+def microsoft_login():
+    """Initiate Microsoft OAuth login"""
+    session.clear()
+    
+    # Redirect to frontend callback page after login
+    session['redirect_url'] = "http://localhost:3000/microsoft-callback"
+
+    # Generate and store state for CSRF protection
+    state = secrets.token_urlsafe(32)
+    session['oauth_state'] = state
+    
+    # Generate authorization URL
+    redirect_uri = url_for('microsoft_callback', _external=True)
+    return microsoft.authorize_redirect(redirect_uri, state=state)
+
+@app.route('/microsoft/callback')
+def microsoft_callback():
+    """Handle Microsoft OAuth callback"""
+    return UserAuth.handle_microsoft_callback(microsoft, users_collection, initialize_new_user_dashboard_stats)
+
 
 @app.route('/google/callback')
 def google_callback():
@@ -286,7 +342,7 @@ def check_upload_access():
         return jsonify({'uploadAccess': True})
     return jsonify({'uploadAccess': False})
 
-@app.route('/logout', methods=['POST'])
+@app.route('/logout', methods=['POST', 'GET'])
 def logout():
     user_email = session.get('user', {}).get('email')
     if user_email:
@@ -294,42 +350,15 @@ def logout():
         AuthUtils.remove_user_session(user_email)
     session.pop('upload_access', None)
     session.clear()
-    return jsonify({"success": True})
+    
+    # Check if request expects JSON or redirect
+    if request.method == 'POST' or request.headers.get('Content-Type') == 'application/json':
+        return jsonify({"success": True, "message": "Logged out successfully"})
+    else:
+        # Redirect to frontend homepage (same as login redirect)
+        return redirect("http://localhost:3000/mentormate-homepage")
 
-@app.route('/chat')
-@login_required
-def chat():
-    return render_template('chat.html')
-
-@app.route('/chat_water')
-@login_required
-def chat_water():
-    return render_template('chat_water.html')
-
-@app.route('/chat_concrete')
-@login_required
-def chat_concrete():
-    return render_template('chat_concrete.html')
-
-@app.route('/chat_electrical')
-@login_required
-def chat_electrical():
-    return render_template('chat_electrical.html')
-
-@app.route('/chat_mining')
-@login_required
-def chat_mining():
-    return render_template('chat_mining.html')
-
-@app.route('/upload')
-@login_required
-def upload():
-    return render_template('upload.html')
-
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    return render_template('dashboard.html')
+# Template routes removed - React frontend handles all UI
 
 @app.route('/api/feedback', methods=['POST', 'OPTIONS'])
 @login_required
@@ -341,29 +370,12 @@ def invalidate_session():
     """Invalidate current session (called when user logs in from another device)"""
     return UserAuth.handle_invalidate_session()
 
-@app.route('/session-conflict')
-def session_conflict():
-    """Handle session conflicts by showing a page to the user"""
-    conflict_info = session.get('session_conflict')
-    if not conflict_info:
-        return redirect(url_for('index'))
-    
-    return render_template('session_conflict.html', conflict_info=conflict_info)
+# Session conflict route removed - React frontend handles this via API
 
 @app.route('/api/force-login', methods=['POST'])
 def force_login():
     """Force login by logging out the previous session"""
     return UserAuth.handle_login(users_collection)
-
-# Serve the home page HTML file
-@app.route('/static/<path:path>')
-def serve_static(path):
-    return send_from_directory('static', path)
-
-# For development - serve our single HTML file
-@app.route('/index.html')
-def serve_html():
-    return render_template('index.html')
 
 @app.route('/pay')
 @login_required
@@ -379,8 +391,8 @@ def pay_success():
 @app.route('/pay/cancel')
 @login_required
 def pay_cancel():
-    flash('Payment cancelled.', 'warning')
-    return redirect(url_for('chat'))
+    # Redirect to React frontend with cancellation message
+    return redirect("http://localhost:3000/payment-cancelled")
 
 @app.route('/pay/notify', methods=['POST'])
 def pay_notify():
@@ -445,10 +457,7 @@ def get_history_chat(user_id):
 
         sessions = list(collection.aggregate(pipeline))
 
-        if debug_mode:
-                print(f"[DEBUG] Aggregation returned {len(sessions)} sessions")
-                if sessions:
-                    print(f"[DEBUG] First session structure: {sessions[0]}")
+
 
         # Format response
         response = {
@@ -483,10 +492,8 @@ def get_history_chat(user_id):
 
         return jsonify(response), 200
     except Exception as e:
-        print(f"Error fetching chat history: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        app.logger.error(f"Error fetching chat history: {str(e)}")
+        return jsonify({"error": "Failed to fetch chat history"}), 500
     
 
 @app.route("/chat_history/<user_id>/session/<conversation_id>", methods=["GET"])
@@ -543,8 +550,8 @@ def get_specific_session(user_id, conversation_id):
         return jsonify(response), 200
         
     except Exception as e:
-        print(f"Error fetching specific session: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        app.logger.error(f"Error fetching specific session: {str(e)}")
+        return jsonify({"error": "Failed to fetch session"}), 500
     
 
 @app.route("/chat_history/<user_id>/delete", methods=["DELETE"])
@@ -579,21 +586,27 @@ def delete_chat_history(user_id):
         }), 200
         
     except Exception as e:
-        print(f"Error deleting chat history: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        app.logger.error(f"Error deleting chat history: {str(e)}")
+        return jsonify({"error": "Failed to delete history"}), 500
 
 
 @app.route('/api/rag', methods=['POST'])
-@login_required
 def proxy_rag():
+    # TEMPORARY: Auth disabled for development due to cross-origin cookie issues
+    # TODO: Implement token-based auth for production
+    # Check authentication
+    if 'user' not in session:
+        return jsonify({
+            "error": "Authentication required",
+            "message": "Please login first using /api/signin or OAuth"
+        }), 401
 
     try:
         data = request.get_json() or {}
         query_text = data.get('query')
         collection_name = data.get('collection_name')
 
-        # Use authenticated user's id/email to prevent spoofing. The login_required
-        # decorator ensures `session['user']` exists.
+        # Use authenticated user's id/email to prevent spoofing.
         auth_user = session.get('user', {})
         user_id = auth_user.get('id') or auth_user.get('email') or 'unknown'
         conversation_id = data.get('conversation_id')
@@ -604,10 +617,13 @@ def proxy_rag():
             conversation_id = f"conv_{user_id}_{uuid.uuid4().hex[:8]}"
             is_new = True
         else:
-            # Ensure conversation id belongs to this user (prefix check)
-            if not str(conversation_id).startswith(f"conv_{user_id}"):
-                # Prevent cross-user conversation manipulation
-                return jsonify({"error": "conversation_id does not belong to authenticated user"}), 403
+            # Validate conversation_id format and ownership
+            # If conversation_id doesn't belong to this user, regenerate it
+            expected_prefix = f"conv_{user_id}_"
+            if not str(conversation_id).startswith(expected_prefix):
+                # Regenerate conversation_id for this user instead of rejecting
+                conversation_id = f"conv_{user_id}_{uuid.uuid4().hex[:8]}"
+                is_new = True
 
         # Basic validation
         if not query_text:
@@ -617,6 +633,7 @@ def proxy_rag():
         rag_url = os.getenv('RAG_SERVICE_URL') or 'https://oompiet.space/rag'
         forward_payload = data.copy()
         forward_payload['conversation_id'] = conversation_id
+        forward_payload['user_id'] = user_id
 
         # Persist the user's message first (so we always have the user's side recorded)
         now = datetime.now(timezone.utc)
