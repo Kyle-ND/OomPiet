@@ -56,7 +56,19 @@ def handle_signup(users_collection , initialize_new_user_dashboard_stats_func):
         users_collection.insert_one(user_data)
         initialize_new_user_dashboard_stats_func(email)
 
-        return jsonify({'success': True, 'message': 'Account created successfully! You can now sign in.'}), 200
+        # Automatically log the user in after successful signup
+        session.permanent = True
+        session['user'] = {
+            'email': email,
+            'name': f"{first_name} {last_name}",
+            'picture': '/static/avatardefault.png',
+            'auth_method': 'email',
+            'premium': False
+        }
+        session['session_id'] = AuthUtils.create_user_session(email)
+
+        current_app.logger.info(f"Signup and auto-login successful for user: {email}")
+        return jsonify({'success': True, 'message': 'Account created successfully!', 'user': session['user']}), 200
 
     except Exception as e:
         current_app.logger.error(f"Error in signup: {str(e)}")

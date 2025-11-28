@@ -139,7 +139,14 @@ SMTP_USERNAME = os.getenv('SMTP_USERNAME')
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
 SMTP_FROM = os.getenv('SMTP_FROM', SMTP_USERNAME)
 
-ALLOWED_QDRANT_COLLECTIONS = ["Concrete_docs", "Tailings_engineer_docs", "Water_docs"]
+# Valid collections accepted by the RAG service
+ALLOWED_QDRANT_COLLECTIONS = [
+    "Concrete_docs",
+    "Tailings_engineer_docs", 
+    "Water_docs",
+    "Mining_docs",
+    "Electrical_docs"
+]
 
 class JSONEncoder(json.JSONEncoder):
     def default(self, o):
@@ -605,6 +612,15 @@ def proxy_rag():
         data = request.get_json() or {}
         query_text = data.get('query')
         collection_name = data.get('collection_name')
+        
+        # Validate collection_name
+        if not collection_name:
+            return jsonify({"error": "collection_name is required"}), 400
+        
+        if collection_name not in ALLOWED_QDRANT_COLLECTIONS:
+            return jsonify({
+                "error": f"Invalid collection_name '{collection_name}'. Must be one of: {', '.join(ALLOWED_QDRANT_COLLECTIONS)}"
+            }), 400
 
         # Use authenticated user's id/email to prevent spoofing.
         auth_user = session.get('user', {})
@@ -634,6 +650,9 @@ def proxy_rag():
         forward_payload = data.copy()
         forward_payload['conversation_id'] = conversation_id
         forward_payload['user_id'] = user_id
+        
+        # Log payload for debugging
+        app.logger.info(f"RAG Request - collection_name: {collection_name}, conversation_id: {conversation_id}, query: {query_text[:50] if query_text else None}")
 
         # Persist the user's message first (so we always have the user's side recorded)
         now = datetime.now(timezone.utc)
@@ -656,6 +675,10 @@ def proxy_rag():
             resp = requests.post(rag_url, json=forward_payload, timeout=30)
             resp.raise_for_status()
             resp_json = resp.json()
+        except requests.exceptions.HTTPError as http_err:
+            # Log the actual error response from RAG service
+            app.logger.error(f"RAG service returned {http_err.response.status_code}: {http_err.response.text}")
+            resp_json = {"error": f"RAG service error: {http_err.response.text}"}
         except Exception as exc:
             # If forwarding failed, log and return error; user message is already persisted
             app.logger.exception("Error forwarding to RAG service")
