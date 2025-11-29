@@ -1,6 +1,6 @@
 from datetime import timezone,timedelta,datetime
 from bson import ObjectId
-from flask import Flask, jsonify, redirect, request, url_for, session, send_from_directory
+from flask import Flask, jsonify, redirect, render_template, request, url_for, session, send_from_directory
 from flask_session import Session
 from authlib.integrations.flask_client import OAuth
 import os
@@ -36,6 +36,16 @@ MONGO_URI = os.getenv('MONGO_URI')
 MODE = os.getenv('MODE', 'development')
 TENANT_ID = os.getenv('TID')
 CLIENT_SECRET = os.getenv('CID')
+
+#Microsoft OAuth Configuration
+MICROSOFT_CLIENT_ID =  os.getenv('MICROSOFT_CLIENT_ID')
+MICROSOFT_CLIENT_SECRET = os.getenv('MICROSOFT_CLIENT_SECRET')
+MICROSOFT_TENANT_ID = os.getenv('MICROSOFT_TENANT_ID')
+MICROSOFT_REDIRECT_URI = os.getenv('MICROSOFT_REDIRECT_URI')
+
+AUTH_URL = f"https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+TOKEN_URL = f"https://login.microsoftonline.com/common/oauth2/v2.0/token"
+GRAPH_ME_URL = "https://graph.microsoft.com/v1.0/me"
 
 # PayFast Configuration
 PAYFAST_MERCHANT_ID = os.getenv('PAYFAST_MERCHANT_ID')
@@ -118,19 +128,19 @@ google = oauth.register(
 # Configure Microsoft OAuth
 microsoft = oauth.register(
     name='microsoft',
-    client_id=TENANT_ID,
-    client_secret=CLIENT_SECRET,  
-    authorize_url=f'https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/authorize',
+    client_id=MICROSOFT_CLIENT_ID,
+    client_secret=MICROSOFT_CLIENT_SECRET,  
+    authorize_url=f'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
     authorize_params=None,
-    access_token_url=f'https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token',
+    access_token_url=f'https://login.microsoftonline.com/common/oauth2/v2.0/token',
     access_token_params=None,
     refresh_token_url=None,
-    redirect_uri='YOUR_CALLBACK_URL',  # e.g., 'http://localhost:5000/auth/microsoft/callback'
+    redirect_uri=MICROSOFT_REDIRECT_URI,
     client_kwargs={
         'scope': 'openid email profile User.Read',
         'token_endpoint_auth_method': 'client_secret_post',
     },
-    server_metadata_url=f'https://login.microsoftonline.com/{TENANT_ID}/v2.0/.well-known/openid-configuration',
+    server_metadata_url=f'https://login.microsoftonline.com/{MICROSOFT_TENANT_ID}/v2.0/.well-known/openid-configuration',
 )
 
 SMTP_SERVER = os.getenv('SMTP_SERVER')
@@ -768,6 +778,61 @@ def list_rag_sessions():
     except Exception as e:
         app.logger.exception("Error listing RAG sessions")
         return jsonify({"error": str(e)}), 500
+
+@app.get('/shared/<conversation_id>')
+def shared_conversation(conversation_id):
+    """
+    Retrieve and render a shared conversation by its conversation_id.
+    Returns a rendered HTML template with the conversation details if found,
+    otherwise returns an error message in JSON format.
+    """
+    try:
+        # Fetch all messages for this conversation
+        messages = list(collection.find(
+            {"conversation_id": conversation_id}
+        ).sort("timestamp", 1))
+        
+        if not messages:
+            return jsonify({
+                "session_id": conversation_id,
+                "message_count": 0,
+                "messages": []
+            }), 200
+        
+        # Format response
+        response = {
+            "session_id": conversation_id,
+            "collection_name": messages[0].get("collection_name"),
+            "created_at": messages[0].get("timestamp").isoformat() if isinstance(messages[0].get("timestamp"), datetime) else (str(messages[0].get("timestamp")) if messages[0].get("timestamp") else None),
+            "last_activity": messages[-1].get("timestamp").isoformat() if isinstance(messages[-1].get("timestamp"), datetime) else (str(messages[-1].get("timestamp")) if messages[-1].get("timestamp") else None),
+            "message_count": len(messages),
+            "messages": []
+        }
+        
+        for msg in messages:
+            response["messages"].append({
+                "query": msg.get("query"),
+                "answer": msg.get("answer"),
+                "timestamp": msg.get("timestamp").isoformat() if isinstance(msg.get("timestamp"), datetime) else (str(msg.get("timestamp")) if msg.get("timestamp") else None),
+                "model_used": msg.get("model_used"),
+                "is_new_conversation": msg.get("is_new_conversation"),
+                "role": msg.get("role")
+            })
+        
+        try:
+            return render_template('shared_conversation.html', conversation=response)
+        except Exception as template_exc:
+            from jinja2 import TemplateNotFound
+            if isinstance(template_exc, TemplateNotFound):
+                app.logger.error(f"Template not found: {template_exc.name}")
+                return jsonify({"error": "Template 'shared_conversation.html' not found"}), 500
+            else:
+                raise
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching shared conversation: {str(e)}")
+        return jsonify({"error": "Failed to fetch conversation"}), 500
+    
 
 
 if __name__ == '__main__':
