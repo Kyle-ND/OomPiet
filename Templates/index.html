@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MentorMate • Shared Conversation</title>
+  <base href="/" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            assistant: 'rgb(200,229,243)',
+            'assistant-hover': 'rgb(180,210,230)'
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col">
+
+<script>
+  window.SHARED_CONVERSATION = JSON.parse('{{ shared_data | tojson | safe }}');
+</script>
+
+
+
+  <!-- Header -->
+  <header class="flex items-center gap-5 px-6 py-5 bg-white border-b sticky top-0 z-10 shadow-sm">
+    <button onclick="history.back()" class="p-2 hover:bg-gray-100 rounded-lg transition">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+      </svg>
+    </button>
+
+    <!-- Beautiful gray placeholder that gets instantly replaced -->
+    <img 
+      id="avatar"
+      src="data:image/svg+xml,%3Csvg width='48' height='48' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' fill='%23e5e7eb'/%3E%3C/svg%3E"
+      alt="Mentor avatar"
+      class="w-12 h-12 rounded-full shadow-lg border-2 border-white object-cover"
+    />
+
+    <div class="flex-1 min-w-0">
+      <h1 id="name" class="text-base font-bold truncate">Loading...</h1>
+      <p id="title" class="text-xs text-gray-500 truncate">Specialist</p>
+    </div>
+  </header>
+
+  <!-- Messages -->
+  <main id="messages" class="flex-1 overflow-y-auto p-6 space-y-8 bg-gradient-to-b from-gray-50 to-white">
+    <div class="text-center text-gray-500 py-20">Loading conversation...</div>
+  </main>
+
+  <!-- Disabled input + CTA -->
+  <footer class="border-t bg-white p-5 shadow-2xl">
+    <div class="max-w-5xl mx-auto text-center space-y-5">
+      <input 
+        type="text" 
+        disabled 
+        placeholder="Sign up to continue this conversation..."
+        class="w-full border border-gray-300 rounded-full px-6 py-4 text-center cursor-not-allowed bg-gray-50 opacity-60"
+      />
+      <a 
+        id="cta"
+        href="/signup"
+        class="block bg-assistant hover:bg-assistant-hover text-gray-900 font-bold py-5 rounded-full text-lg transition-all shadow-lg transform hover:scale-105"
+      >
+        Chat with <span id="cta-name">this mentor</span> to Sign Up Free
+      </a>
+    </div>
+  </footer>
+
+  <!-- JavaScript – runs instantly and fills everything correctly -->
+  <script>
+    const data = window.SHARED_CONVERSATION;
+    const { expert, conversation } = data;
+
+    // Update avatar, name, title
+    document.getElementById('avatar').src = expert.avatar_url;
+    document.getElementById('name').textContent = expert.name;
+    document.getElementById('title').textContent = expert.title || "Specialist";
+    document.getElementById('cta-name').textContent = expert.name;
+
+    // Update CTA button text & link
+    document.getElementById('cta').innerHTML = `Chat with ${expert.name} to Sign Up Free`;
+    const signupUrl = new URL('/signup', location.origin);
+    signupUrl.searchParams.set('ref', 'shared_convo');
+    signupUrl.searchParams.set('mentor', expert.name);
+    if (conversation.id) signupUrl.searchParams.set('conversation_id', conversation.id);
+    document.getElementById('cta').href = signupUrl;
+
+    // Render messages
+    const container = document.getElementById('messages');
+    container.innerHTML = '';
+
+    if (!conversation.messages || conversation.messages.length === 0) {
+      container.innerHTML = '<div class="text-center text-gray-500 py-20">This conversation is empty.</div>';
+    } else {
+      conversation.messages.forEach(msg => {
+        const isUser = msg.role === 'user';
+        const bubble = isUser ? 'bg-gray-200 text-gray-900' : 'bg-assistant text-gray-900';
+
+        const time = new Date(msg.timestamp).toLocaleTimeString([], { 
+          hour: '2-digit', minute: '2-digit' 
+        });
+
+        const div = document.createElement('div');
+        div.className = `flex ${isUser ? 'justify-end' : 'justify-start'} items-end gap-4`;
+
+        if (!isUser) {
+          div.innerHTML += `<img src="${expert.avatar_url}" class="w-24 h-24 rounded-full shadow-lg flex-shrink-0" alt="${expert.name}" />`;
+        }
+
+        div.innerHTML += `
+          <div class="px-6 py-4 rounded-3xl max-w-4xl shadow-lg ${bubble}">
+            <div class="text-sm lg:text-base leading-relaxed whitespace-pre-wrap">
+              ${msg.content.replace(/\n/g, '<br>')}
+            </div>
+            <div class="text-xs text-gray-500 mt-3 text-right">${time}</div>
+          </div>
+        `;
+
+        container.appendChild(div);
+      });
+    }
+
+    // Scroll to bottom
+    container.scrollTop = container.scrollHeight;
+  </script>
+</body>
+</html>
