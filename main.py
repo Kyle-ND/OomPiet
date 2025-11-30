@@ -34,6 +34,7 @@ GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
 SECRET_KEY = os.getenv('SECRET_KEY')  # Default for development
 MONGO_URI = os.getenv('MONGO_URI')
 MODE = os.getenv('MODE', 'development')
+
 TENANT_ID = os.getenv('TID')
 CLIENT_SECRET = os.getenv('CID')
 
@@ -68,18 +69,16 @@ CORS(app,
 
 app.secret_key = SECRET_KEY
 
-# Configure server-side sessions with filesystem (simple, no MongoDB compatibility issues)
+# Configure server-side sessions
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_FILE_DIR'] = os.path.join(os.path.dirname(__file__), 'flask_session')
 app.config['SESSION_COOKIE_NAME'] = 'google-login-session'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)
-app.config['SESSION_USE_SIGNER'] = True  # Sign the session ID cookie
-# For development: Share cookies across localhost ports by setting domain to 'localhost'
-# This allows localhost:3000 and localhost:5000 to share the same session cookie
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Lax allows same-site requests
-app.config['SESSION_COOKIE_SECURE'] = False  # False for http://localhost (use True in production with HTTPS)
+app.config['SESSION_USE_SIGNER'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_DOMAIN'] = 'localhost'  # Share across all localhost ports
+app.config['SESSION_COOKIE_DOMAIN'] = 'localhost'
 
 # Initialize Flask-Session (server-side sessions)
 Session(app)
@@ -92,25 +91,10 @@ client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, connectTimeoutMS=
 db = client["geotech_db"]
 users_collection = db["users"]
 dashboard_stats_collection = db["dashboard_stats"]
-feedback_collection = db["feedback"]  # Add new collection for feedback
-sessions_collection = db["sessions"]  # New collection for session management
-password_reset_collection = db["password_reset_tokens"]  # New collection for password reset tokens
+feedback_collection = db["feedback"]
+sessions_collection = db["sessions"]
+password_reset_collection = db["password_reset_tokens"]
 collection = db["rag_queries"]
-doc = {
-  "conversation_id": "conv_test-user-1234",
-  "collection_name": "Concrete_docs",
-  "timestamp": datetime.now(timezone.utc),
-  "query": "hello",
-  "answer": "hi",
-  "model_used": "test-model",
-  "is_new_conversation": True,
-  "role": "assistant"
-}
-res = db['rag_queries'].insert_one(doc)
-print(res.inserted_id)
-
-
-
 
 # Initialize OAuth
 oauth = OAuth(app)
@@ -206,7 +190,7 @@ def add_security_headers(response):
         # Ensure cookies marked secure in production
         app.config['SESSION_COOKIE_SECURE'] = True
 
-    return response 
+    return response
 
 # --- Hardcoded upload page users ---
 UPLOAD_USERS = [
@@ -231,10 +215,6 @@ limiter = Limiter(
 @app.route('/upload-login', methods=['POST'])
 def upload_login():
     return UserAuth.upload_user(UPLOAD_USERS)
-
-# Routes - Templates removed, using React frontend
-
-
 
 def initialize_new_user_dashboard_stats(email):
     stats = {
@@ -427,7 +407,6 @@ def get_history_chat(user_id):
     try:
         collection_name = request.args.get("collection_name")
         limit = request.args.get("limit", type=int)
-        debug_mode = request.args.get('debug', 'false').lower() == 'true'
 
         # Build a conversation_id pattern for this user and match any conversation
         # belonging to this user (e.g. conv_<user_id> or conv_<user_id>_xxxx)
@@ -503,6 +482,9 @@ def get_history_chat(user_id):
                     "model_used": msg.get("model_used"),
                     "role": msg.get("role")
                 })
+            
+            # Add share status (check first message of conversation)
+            formatted_session["is_shared"] = session_data["messages"][0].get("is_shared", False) if session_data["messages"] else False
 
             # Append this formatted session into the response list
             response["session"].append(formatted_session)
@@ -609,8 +591,6 @@ def delete_chat_history(user_id):
 
 @app.route('/api/rag', methods=['POST'])
 def proxy_rag():
-    # TEMPORARY: Auth disabled for development due to cross-origin cookie issues
-    # TODO: Implement token-based auth for production
     # Check authentication
     if 'user' not in session:
         return jsonify({
@@ -660,9 +640,6 @@ def proxy_rag():
         forward_payload = data.copy()
         forward_payload['conversation_id'] = conversation_id
         forward_payload['user_id'] = user_id
-        
-        # Log payload for debugging
-        app.logger.info(f"RAG Request - collection_name: {collection_name}, conversation_id: {conversation_id}, query: {query_text[:50] if query_text else None}")
 
         # Persist the user's message first (so we always have the user's side recorded)
         now = datetime.now(timezone.utc)
@@ -719,9 +696,7 @@ def proxy_rag():
         return jsonify(resp_json), status_code
 
     except Exception as e:
-        print(f"Error in /api/rag proxy: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        app.logger.error(f"Error in /api/rag proxy: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -779,12 +754,107 @@ def list_rag_sessions():
         app.logger.exception("Error listing RAG sessions")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/share-conversation', methods=['POST', 'OPTIONS'])
+@login_required
+def share_conversation():
+    """
+    Enable sharing for a conversation and return the shareable link.
+    """
+    # Handle OPTIONS preflight request
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        data = request.get_json() or {}
+        conversation_id = data.get('conversation_id')
+        
+        if not conversation_id:
+            return jsonify({"error": "conversation_id is required"}), 400
+        
+        # Verify the conversation belongs to this user
+        auth_user = session.get('user', {})
+        user_id = auth_user.get('id') or auth_user.get('email')
+        expected_prefix = f"conv_{user_id}_"
+        
+        if not conversation_id.startswith(expected_prefix):
+            return jsonify({"error": "You can only share your own conversations"}), 403
+        
+        # Check if conversation exists
+        conversation_exists = collection.find_one({"conversation_id": conversation_id})
+        if not conversation_exists:
+            return jsonify({"error": "Conversation not found"}), 404
+        
+        # Mark all messages in this conversation as shared
+        result = collection.update_many(
+            {"conversation_id": conversation_id},
+            {"$set": {"is_shared": True, "shared_at": datetime.now(timezone.utc)}}
+        )
+        
+        # Generate shareable link
+        base_url = request.host_url.rstrip('/')
+        share_link = f"{base_url}/shared/{conversation_id}"
+        
+        return jsonify({
+            "success": True,
+            "share_link": share_link,
+            "conversation_id": conversation_id,
+            "messages_updated": result.modified_count
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error enabling conversation sharing: {str(e)}")
+        return jsonify({"error": "Failed to enable sharing"}), 500
+
+
+@app.route('/api/unshare-conversation', methods=['POST', 'OPTIONS'])
+@login_required
+def unshare_conversation():
+    """
+    Disable sharing for a conversation.
+    """
+    # Handle OPTIONS preflight request
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        data = request.get_json() or {}
+        conversation_id = data.get('conversation_id')
+        
+        if not conversation_id:
+            return jsonify({"error": "conversation_id is required"}), 400
+        
+        # Verify the conversation belongs to this user
+        auth_user = session.get('user', {})
+        user_id = auth_user.get('id') or auth_user.get('email')
+        expected_prefix = f"conv_{user_id}_"
+        
+        if not conversation_id.startswith(expected_prefix):
+            return jsonify({"error": "You can only unshare your own conversations"}), 403
+        
+        # Remove shared status from all messages in this conversation
+        result = collection.update_many(
+            {"conversation_id": conversation_id},
+            {"$set": {"is_shared": False}, "$unset": {"shared_at": ""}}
+        )
+        
+        return jsonify({
+            "success": True,
+            "conversation_id": conversation_id,
+            "messages_updated": result.modified_count
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error disabling conversation sharing: {str(e)}")
+        return jsonify({"error": "Failed to disable sharing"}), 500
+
+
 @app.get('/shared/<conversation_id>')
 def shared_conversation(conversation_id):
     """
     Retrieve and render a shared conversation by its conversation_id.
     Returns a rendered HTML template with the conversation details if found,
     otherwise returns an error message in JSON format.
+    Only accessible if conversation has been explicitly shared.
     """
     try:
         # Fetch all messages for this conversation
@@ -794,10 +864,17 @@ def shared_conversation(conversation_id):
         
         if not messages:
             return jsonify({
-                "session_id": conversation_id,
-                "message_count": 0,
-                "messages": []
-            }), 200
+                "error": "Conversation not found",
+                "session_id": conversation_id
+            }), 404
+        
+        # Check if conversation is shared (privacy control)
+        is_shared = messages[0].get("is_shared", False)
+        if not is_shared:
+            return jsonify({
+                "error": "This conversation is private and cannot be accessed",
+                "message": "The owner has not shared this conversation"
+            }), 403
         
         # Format response
         response = {
@@ -819,15 +896,8 @@ def shared_conversation(conversation_id):
                 "role": msg.get("role")
             })
         
-        try:
-            return render_template('shared_conversation.html', conversation=response)
-        except Exception as template_exc:
-            from jinja2 import TemplateNotFound
-            if isinstance(template_exc, TemplateNotFound):
-                app.logger.error(f"Template not found: {template_exc.name}")
-                return jsonify({"error": "Template 'shared_conversation.html' not found"}), 500
-            else:
-                raise
+        # Return JSON for React frontend
+        return jsonify(response), 200
         
     except Exception as e:
         app.logger.error(f"Error fetching shared conversation: {str(e)}")
@@ -837,4 +907,4 @@ def shared_conversation(conversation_id):
 
 if __name__ == '__main__':
     # Create static folder if it doesn't exist
-    app.run(host='0.0.0.0', port=5000,debug = True)
+    app.run(host='0.0.0.0', port=5000)
