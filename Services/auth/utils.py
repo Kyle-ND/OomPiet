@@ -141,7 +141,16 @@ def validate_session(session_id, user_email):
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        from flask import request, jsonify
+        
+        # Allow OPTIONS preflight requests without authentication
+        if request.method == 'OPTIONS':
+            return f(*args, **kwargs)
+        
         if 'user' not in session:
+            # Return JSON for API endpoints instead of redirecting
+            if request.path.startswith('/api/'):
+                return jsonify({"error": "Authentication required"}), 401
             return redirect(url_for('login'))
         
         # Validate session
@@ -150,10 +159,14 @@ def login_required(f):
         
         if not user_email or not session_id:
             session.clear()
+            if request.path.startswith('/api/'):
+                return jsonify({"error": "Invalid session"}), 401
             return redirect(url_for('login'))
         
         if not validate_session(session_id, user_email):
             session.clear()
+            if request.path.startswith('/api/'):
+                return jsonify({"error": "Session expired"}), 401
             return redirect(url_for('login'))
         
         return f(*args, **kwargs)
