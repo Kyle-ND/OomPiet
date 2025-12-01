@@ -441,8 +441,15 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         # Get redirect URL and cleanup
         redirect_url = state_doc.get('redirect_url', redirect_url)
         oauth_states_collection.delete_one({"_id": state_doc['_id']})
+        
+        # Temporarily restore state to session for Authlib's internal CSRF check
+        session['oauth_state'] = state
+        session.modified = True
 
         token = microsoft.authorize_access_token()
+        
+        # Clean up state from session
+        session.pop('oauth_state', None)
         if not token:
             raise ValueError("Failed to get access token")
 
@@ -686,8 +693,15 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         redirect_url = state_doc.get('redirect_url', redirect_url)
         oauth_states_collection.delete_one({"_id": state_doc['_id']})
 
+        # Temporarily restore state to session for Authlib's internal CSRF check
+        session['oauth_state'] = state
+        session.modified = True
+
         # Get token
         token = google.authorize_access_token()
+        
+        # Clean up state from session
+        session.pop('oauth_state', None)
         if not token:
             raise ValueError("Failed to get access token")
 
