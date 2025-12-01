@@ -411,7 +411,7 @@ def handle_reset_password(users_collection):
 def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_dashboard_stats):
  
     # Get redirect URL from query parameters
-    redirect_url = session.get("redirect_url", "https://mentormate-client.vercel.app/mentormate-homepage")
+    redirect_url = session.get("redirect_url", "https://mentormate-client.vercel.app/microsoft-callback")
     
     try:
         # Verify state parameter to prevent CSRF attacks
@@ -479,9 +479,9 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         session.modified = True
         
         params = {
-            "success": "true",
             "email": db_user["email"],
-            "name": db_user["name"]
+            "name": db_user["name"],
+            "picture": db_user.get("picture", "/static/default-profile.png")
         }
 
         return redirect(f"{redirect_url}?{urlencode(params)}")
@@ -515,7 +515,7 @@ def get_microsoft_profile_picture(microsoft, token):
 
 def handle_google_callback(google, users_collection, initialize_new_user_dashboard_stats):
     # Get redirect URL from session (set during login initiation)
-    redirect_url = session.get("redirect_url", "https://mentormate-client.vercel.app/mentormate-homepage")
+    redirect_url = session.get("redirect_url", "https://mentormate-client.vercel.app/google-callback")
     
     try:
         # Verify state
