@@ -60,7 +60,7 @@ def remove_user_session(user_email):
 
 def get_active_session_info(user_email):
     """Get information about the active session for a user"""
-    session_data = sessions_collection.find_one({"email": user_email})
+    session_data = sessions_collection.find_one({"user_email": user_email})
     
     if session_data:
         # Check if session is expired
