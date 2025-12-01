@@ -252,11 +252,34 @@ def signup():
 @app.route('/api/check-session', methods=['GET'])
 def check_session():
     """Check if user has active session"""
+    app.logger.info("=== CHECK SESSION START ===")
+    app.logger.info(f"Request cookies: {dict(request.cookies)}")
+    app.logger.info(f"Session cookie name: {app.config['SESSION_COOKIE_NAME']}")
+    app.logger.info(f"Session cookie value: {request.cookies.get(app.config['SESSION_COOKIE_NAME'], 'NOT FOUND')}")
+    app.logger.info(f"Session object contents: {dict(session)}")
+    app.logger.info(f"Session.permanent: {session.permanent}")
+    app.logger.info(f"'user' in session: {'user' in session}")
+    
+    # Check filesystem session directory
+    session_dir = app.config.get('SESSION_FILE_DIR')
+    if session_dir and os.path.exists(session_dir):
+        files = os.listdir(session_dir)
+        app.logger.info(f"Session files in {session_dir}: {len(files)} files")
+        app.logger.info(f"Session files: {files[:5] if len(files) > 5 else files}")  # Show first 5
+    else:
+        app.logger.warning(f"Session directory not found or not configured: {session_dir}")
+    
     is_authenticated = 'user' in session
-    return jsonify({
+    
+    response_data = {
         'authenticated': is_authenticated,
         'user': session.get('user', None) if is_authenticated else None
-    }), 200
+    }
+    
+    app.logger.info(f"Returning: {response_data}")
+    app.logger.info("=== CHECK SESSION END ===")
+    
+    return jsonify(response_data), 200
 
 
 @app.route('/api/signin', methods=['POST'])

@@ -595,6 +595,8 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         # Log session creation for debugging
         current_app.logger.info(f"Google OAuth: Session created for {db_user['email']}")
         current_app.logger.info(f"Session data: user={session.get('user')}, session_id={session.get('session_id')}")
+        current_app.logger.info(f"Session.permanent: {session.permanent}")
+        current_app.logger.info(f"Session.modified: {session.modified}")
         
         # Redirect to frontend with user info including picture
         from urllib.parse import quote
@@ -606,6 +608,11 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         # Force session to be saved to filesystem and cookie to be set
         current_app.session_interface.save_session(current_app, session, response)
         
+        # Log the cookie being set
+        set_cookie_header = response.headers.get('Set-Cookie')
+        current_app.logger.info(f"Set-Cookie header present: {set_cookie_header is not None}")
+        if set_cookie_header:
+            current_app.logger.info(f"Set-Cookie value length: {len(set_cookie_header)}")
         current_app.logger.info(f"Google OAuth: Redirecting to {redirect_url}")
         return response
 
