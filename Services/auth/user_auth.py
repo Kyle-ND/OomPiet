@@ -530,31 +530,41 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
                 }}
             </style>
             <script>
-                // Test if cookies are working
-                function checkCookiesAndRedirect() {{
-                    // Try to set a test cookie
-                    document.cookie = "test_cookie=1; SameSite=None; Secure; Partitioned";
-                    var cookiesEnabled = document.cookie.indexOf("test_cookie") !== -1;
-                    
-                    // Check if user is on Brave browser
-                    var isBrave = navigator.brave && typeof navigator.brave.isBrave === 'function';
-                    
-                    if (!cookiesEnabled || isBrave) {{
-                        // Show Brave-specific instructions
-                        document.getElementById('brave-message').style.display = 'block';
+                // Trigger Brave's cookie permission popup by accessing cookies
+                function triggerCookiePermissionAndRedirect() {{
+                    try {{
+                        // Attempt to read and write cookies - this triggers Brave's permission popup
+                        var existingCookies = document.cookie;
+                        document.cookie = "auth_check=1; path=/; SameSite=None; Secure";
                         
-                        // Still redirect after showing message
+                        // Wait a moment for potential popup, then redirect
+                        setTimeout(function() {{
+                            // Check if cookies were successfully set
+                            var cookiesEnabled = document.cookie.indexOf("auth_check") !== -1;
+                            
+                            if (!cookiesEnabled) {{
+                                // Show manual instructions as fallback
+                                document.getElementById('brave-message').style.display = 'block';
+                                // Redirect after showing instructions
+                                setTimeout(function() {{
+                                    window.location.href = "{final_redirect}";
+                                }}, 5000);
+                            }} else {{
+                                // Cookies work, redirect immediately
+                                window.location.href = "{final_redirect}";
+                            }}
+                        }}, 500);
+                    }} catch (e) {{
+                        // If cookie access fails, show instructions
+                        document.getElementById('brave-message').style.display = 'block';
                         setTimeout(function() {{
                             window.location.href = "{final_redirect}";
                         }}, 5000);
-                    }} else {{
-                        // Cookies work, redirect immediately
-                        window.location.href = "{final_redirect}";
                     }}
                 }}
                 
-                // Run check when page loads
-                window.onload = checkCookiesAndRedirect;
+                // Run immediately when page loads to trigger popup ASAP
+                triggerCookiePermissionAndRedirect();
             </script>
         </head>
         <body>
@@ -623,19 +633,43 @@ def get_microsoft_profile_picture(microsoft, token):
 
 
 
-def handle_google_callback(google, users_collection, initialize_new_user_dashboard_stats):
-    # Get redirect URL from session (set during login initiation)
-    redirect_url = session.get("redirect_url", "https://mentormate-client.vercel.app/google-callback")
+def handle_microsoft_callback(users_collection, initialize_new_user_dashboard_stats):
+    # Get OAuth states collection from app
+    from flask import current_app
+    oauth_states_collection = current_app.extensions.get('oauth_states_collection')
     
     try:
-        # Verify state
+        # Verify state from MongoDB
         state = request.args.get('state')
-        stored_state = session.get('oauth_state')
-
-        if not state or not stored_state or state != stored_state:
-            raise ValueError("State verification failed")
+        if not state:
+            raise ValueError("State parameter missing")
         
-        session.pop('oauth_state', None)
+        # Look up state in MongoDB
+        state_doc = oauth_states_collection.find_one({"state": state, "provider": "microsoft"})
+        if not state_doc:
+            raise ValueError("State verification failed - state not found")
+        
+        # Check if state has expired
+        from datetime import datetime, timezone
+        if datetime.now(timezone.utc) > state_doc['expires_at']:
+            oauth_states_collection.delete_one({"_id": state_doc['_id']})
+            raise ValueError("State verification failed - state expired")
+        
+        # Get redirect URL and cleanup
+        redirect_url = state_doc.get('redirect_url', 'https://mentormate-client.vercel.app/microsoft-callback')
+        oauth_states_collection.delete_one({"_id": state_doc['_id']})ion.find_one({"state": state, "provider": "google"})
+        if not state_doc:
+            raise ValueError("State verification failed - state not found")
+        
+        # Check if state has expired
+        from datetime import datetime, timezone
+        if datetime.now(timezone.utc) > state_doc['expires_at']:
+            oauth_states_collection.delete_one({"_id": state_doc['_id']})
+            raise ValueError("State verification failed - state expired")
+        
+        # Get redirect URL and cleanup
+        redirect_url = state_doc.get('redirect_url', 'https://mentormate-client.vercel.app/google-callback')
+        oauth_states_collection.delete_one({"_id": state_doc['_id']})
 
         # Get token
         token = google.authorize_access_token()
@@ -706,7 +740,7 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         redirect_params = f"email={quote(db_user['email'])}&name={quote(db_user['name'])}&picture={quote(db_user.get('picture', '/static/default-profile.png'))}&session_token={session_token}"
         final_redirect = f"{redirect_url}?{redirect_params}"
         
-        # Create HTML page that detects cookie blocking and provides instructions
+        # Create HTML page that triggers Brave's cookie permission popup
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -742,31 +776,41 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
                 }}
             </style>
             <script>
-                // Test if cookies are working
-                function checkCookiesAndRedirect() {{
-                    // Try to set a test cookie
-                    document.cookie = "test_cookie=1; SameSite=None; Secure; Partitioned";
-                    var cookiesEnabled = document.cookie.indexOf("test_cookie") !== -1;
-                    
-                    // Check if user is on Brave browser
-                    var isBrave = navigator.brave && typeof navigator.brave.isBrave === 'function';
-                    
-                    if (!cookiesEnabled || isBrave) {{
-                        // Show Brave-specific instructions
-                        document.getElementById('brave-message').style.display = 'block';
+                // Trigger Brave's cookie permission popup by accessing cookies
+                function triggerCookiePermissionAndRedirect() {{
+                    try {{
+                        // Attempt to read and write cookies - this triggers Brave's permission popup
+                        var existingCookies = document.cookie;
+                        document.cookie = "auth_check=1; path=/; SameSite=None; Secure";
                         
-                        // Still redirect after showing message
+                        // Wait a moment for potential popup, then redirect
+                        setTimeout(function() {{
+                            // Check if cookies were successfully set
+                            var cookiesEnabled = document.cookie.indexOf("auth_check") !== -1;
+                            
+                            if (!cookiesEnabled) {{
+                                // Show manual instructions as fallback
+                                document.getElementById('brave-message').style.display = 'block';
+                                // Redirect after showing instructions
+                                setTimeout(function() {{
+                                    window.location.href = "{final_redirect}";
+                                }}, 5000);
+                            }} else {{
+                                // Cookies work, redirect immediately
+                                window.location.href = "{final_redirect}";
+                            }}
+                        }}, 500);
+                    }} catch (e) {{
+                        // If cookie access fails, show instructions
+                        document.getElementById('brave-message').style.display = 'block';
                         setTimeout(function() {{
                             window.location.href = "{final_redirect}";
                         }}, 5000);
-                    }} else {{
-                        // Cookies work, redirect immediately
-                        window.location.href = "{final_redirect}";
                     }}
                 }}
                 
-                // Run check when page loads
-                window.onload = checkCookiesAndRedirect;
+                // Run immediately when page loads to trigger popup ASAP
+                triggerCookiePermissionAndRedirect();
             </script>
         </head>
         <body>
