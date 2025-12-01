@@ -57,7 +57,7 @@ PAYFAST_SANDBOX = os.getenv('PAYFAST_SANDBOX', 'true').lower() == 'true'
 app = Flask(__name__, static_folder='static')
 
 CORS(app, 
-     origins=["http://localhost:3000"],  # Specific origins for credentials
+     origins=["http://localhost:3000","https://mentormate-client.vercel.app"],  # Specific origins for credentials
      methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
      allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
      expose_headers=["Content-Type", "Authorization"],
@@ -286,7 +286,7 @@ def login():
     session.clear()
 
     # Redirect to frontend callback page after login
-    session['redirect_url'] = "http://localhost:3000/google-callback"
+    session['redirect_url'] = "https://mentormate-client.vercel.app/google-callback"
 
     session['oauth_state'] = os.urandom(16).hex()
     session.modified = True
@@ -302,7 +302,7 @@ def microsoft_login():
     session.clear()
     
     # Redirect to frontend callback page after login
-    session['redirect_url'] = "http://localhost:3000/microsoft-callback"
+    session['redirect_url'] = "https://mentormate-client.vercel.app/microsoft-callback"
 
     # Generate and store state for CSRF protection
     state = secrets.token_urlsafe(32)
@@ -353,7 +353,7 @@ def logout():
         return jsonify({"success": True, "message": "Logged out successfully"})
     else:
         # Redirect to frontend homepage (same as login redirect)
-        return redirect("http://localhost:3000/mentormate-homepage")
+        return redirect("https://mentormate-client.vercel.app/mentormate-homepage")
 
 # Template routes removed - React frontend handles all UI
 
@@ -389,7 +389,7 @@ def pay_success():
 @login_required
 def pay_cancel():
     # Redirect to React frontend with cancellation message
-    return redirect("http://localhost:3000/payment-cancelled")
+    return redirect("https://mentormate-client.vercel.app/payment-cancelled")
 
 @app.route('/pay/notify', methods=['POST'])
 def pay_notify():
