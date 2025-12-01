@@ -286,7 +286,7 @@ def login():
     session.clear()
 
     # Redirect to frontend callback page after login
-    session['redirect_url'] = "https://mentormate-client.vercel.app/google-callback"
+    session['redirect_url'] = "https://mentormate-client.vercel.app/mentormate-homepage"
 
     session['oauth_state'] = os.urandom(16).hex()
     session.modified = True
@@ -302,7 +302,7 @@ def microsoft_login():
     session.clear()
     
     # Redirect to frontend callback page after login
-    session['redirect_url'] = "https://mentormate-client.vercel.app/microsoft-callback"
+    session['redirect_url'] = "https://mentormate-client.vercel.app/mentormate-homepage"
 
     # Generate and store state for CSRF protection
     state = secrets.token_urlsafe(32)
