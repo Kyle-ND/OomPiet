@@ -478,13 +478,23 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         session['session_id'] = session_id
         session.modified = True
         
+        # Log session creation for debugging
+        current_app.logger.info(f"Microsoft OAuth: Session created for {db_user['email']}")
+        current_app.logger.info(f"Session data: user={session.get('user')}, session_id={session.get('session_id')}")
+        
         params = {
             "email": db_user["email"],
             "name": db_user["name"],
             "picture": db_user.get("picture", "/static/default-profile.png")
         }
 
-        return redirect(f"{redirect_url}?{urlencode(params)}")
+        # Create response with explicit session save
+        response = make_response(redirect(f"{redirect_url}?{urlencode(params)}"))
+        # Force session to be saved to filesystem and cookie to be set
+        current_app.session_interface.save_session(current_app, session, response)
+        
+        current_app.logger.info(f"Microsoft OAuth: Redirecting to {redirect_url}")
+        return response
 
     except Exception as e:
         current_app.logger.error(f"Error in Microsoft callback: {str(e)}")
@@ -582,13 +592,22 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         session['session_id'] = session_id
         session.modified = True
         
+        # Log session creation for debugging
+        current_app.logger.info(f"Google OAuth: Session created for {db_user['email']}")
+        current_app.logger.info(f"Session data: user={session.get('user')}, session_id={session.get('session_id')}")
+        
         # Redirect to frontend with user info including picture
         from urllib.parse import quote
         redirect_params = f"email={quote(db_user['email'])}&name={quote(db_user['name'])}&picture={quote(db_user.get('picture', '/static/default-profile.png'))}"
         final_redirect = f"{redirect_url}?{redirect_params}"
         
-        # Flask will automatically set the session cookie with the configured domain
-        return redirect(final_redirect)
+        # Create response with explicit session save
+        response = make_response(redirect(final_redirect))
+        # Force session to be saved to filesystem and cookie to be set
+        current_app.session_interface.save_session(current_app, session, response)
+        
+        current_app.logger.info(f"Google OAuth: Redirecting to {redirect_url}")
+        return response
 
     except Exception as e:
         current_app.logger.error(f"Error in Google callback: {str(e)}")
