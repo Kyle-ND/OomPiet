@@ -488,10 +488,98 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
             "picture": db_user.get("picture", "/static/default-profile.png")
         }
         
+        # Create session token for fallback (in case cookies are blocked)
+        session_token = session.sid if hasattr(session, 'sid') else str(uuid.uuid4())
+        params['session_token'] = session_token
+        
         final_redirect = f"{redirect_url}?{urlencode(params)}"
         
-        # Create response and save session
-        response = make_response(redirect(final_redirect))
+        # Create HTML page that detects cookie blocking and provides instructions
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Redirecting...</title>
+            <meta charset="UTF-8">
+            <style>
+                body {{
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                    max-width: 600px;
+                    margin: 50px auto;
+                    padding: 20px;
+                    text-align: center;
+                }}
+                .brave-instructions {{
+                    display: none;
+                    background: #fff3cd;
+                    border: 1px solid #ffc107;
+                    padding: 20px;
+                    border-radius: 8px;
+                    margin-top: 20px;
+                    text-align: left;
+                }}
+                .brave-instructions h3 {{
+                    margin-top: 0;
+                    color: #856404;
+                }}
+                .brave-instructions ol {{
+                    padding-left: 20px;
+                }}
+                .brave-instructions li {{
+                    margin: 10px 0;
+                }}
+            </style>
+            <script>
+                // Test if cookies are working
+                function checkCookiesAndRedirect() {{
+                    // Try to set a test cookie
+                    document.cookie = "test_cookie=1; SameSite=None; Secure; Partitioned";
+                    var cookiesEnabled = document.cookie.indexOf("test_cookie") !== -1;
+                    
+                    // Check if user is on Brave browser
+                    var isBrave = navigator.brave && typeof navigator.brave.isBrave === 'function';
+                    
+                    if (!cookiesEnabled || isBrave) {{
+                        // Show Brave-specific instructions
+                        document.getElementById('brave-message').style.display = 'block';
+                        
+                        // Still redirect after showing message
+                        setTimeout(function() {{
+                            window.location.href = "{final_redirect}";
+                        }}, 5000);
+                    }} else {{
+                        // Cookies work, redirect immediately
+                        window.location.href = "{final_redirect}";
+                    }}
+                }}
+                
+                // Run check when page loads
+                window.onload = checkCookiesAndRedirect;
+            </script>
+        </head>
+        <body>
+            <h2>🎉 Authentication Successful!</h2>
+            <p>Redirecting you back to MentorMate...</p>
+            
+            <div id="brave-message" class="brave-instructions">
+                <h3>⚠️ Cookie Settings Required for Brave Browser</h3>
+                <p>Brave browser blocks third-party cookies by default. To use MentorMate, please:</p>
+                <ol>
+                    <li>Click the <strong>Brave Shields</strong> icon (lion icon) in the address bar</li>
+                    <li>Click on <strong>"Advanced View"</strong> or <strong>"Advanced Controls"</strong></li>
+                    <li>Under <strong>"Cross-site cookies blocked"</strong>, select <strong>"Allow all cookies"</strong></li>
+                    <li>Refresh the page or log in again</li>
+                </ol>
+                <p><strong>Or:</strong> Go to <code>brave://settings/cookies</code> and add <code>oompiet-production.up.railway.app</code> to allowed sites.</p>
+                <p style="margin-top: 15px;">You'll be redirected automatically in 5 seconds...</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Create response with HTML
+        response = make_response(html_content, 200)
+        response.headers['Content-Type'] = 'text/html; charset=utf-8'
         
         # Force session to be saved to MongoDB
         current_app.session_interface.save_session(current_app, session, response)
@@ -503,7 +591,7 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
             current_app.logger.info("Added Partitioned attribute to cookie")
         
         current_app.logger.info(f"Set-Cookie header: {response.headers.get('Set-Cookie')[:200] if response.headers.get('Set-Cookie') else 'NOT SET'}")
-        current_app.logger.info(f"Microsoft OAuth: Redirecting to {final_redirect}")
+        current_app.logger.info(f"Microsoft OAuth: Showing instructions page, will redirect to {final_redirect}")
         
         current_app.logger.info(f"Microsoft OAuth: Redirecting to {redirect_url}")
         return response
@@ -610,13 +698,100 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         current_app.logger.info(f"Session.permanent: {session.permanent}")
         current_app.logger.info(f"Session.modified: {session.modified}")
         
-        # Redirect to frontend with user info
+        # Create session token for fallback (in case cookies are blocked)
+        session_token = session.sid if hasattr(session, 'sid') else str(uuid.uuid4())
+        
+        # Redirect to frontend with user info and session token
         from urllib.parse import quote
-        redirect_params = f"email={quote(db_user['email'])}&name={quote(db_user['name'])}&picture={quote(db_user.get('picture', '/static/default-profile.png'))}"
+        redirect_params = f"email={quote(db_user['email'])}&name={quote(db_user['name'])}&picture={quote(db_user.get('picture', '/static/default-profile.png'))}&session_token={session_token}"
         final_redirect = f"{redirect_url}?{redirect_params}"
         
-        # Create response and save session
-        response = make_response(redirect(final_redirect))
+        # Create HTML page that detects cookie blocking and provides instructions
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Redirecting...</title>
+            <meta charset="UTF-8">
+            <style>
+                body {{
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                    max-width: 600px;
+                    margin: 50px auto;
+                    padding: 20px;
+                    text-align: center;
+                }}
+                .brave-instructions {{
+                    display: none;
+                    background: #fff3cd;
+                    border: 1px solid #ffc107;
+                    padding: 20px;
+                    border-radius: 8px;
+                    margin-top: 20px;
+                    text-align: left;
+                }}
+                .brave-instructions h3 {{
+                    margin-top: 0;
+                    color: #856404;
+                }}
+                .brave-instructions ol {{
+                    padding-left: 20px;
+                }}
+                .brave-instructions li {{
+                    margin: 10px 0;
+                }}
+            </style>
+            <script>
+                // Test if cookies are working
+                function checkCookiesAndRedirect() {{
+                    // Try to set a test cookie
+                    document.cookie = "test_cookie=1; SameSite=None; Secure; Partitioned";
+                    var cookiesEnabled = document.cookie.indexOf("test_cookie") !== -1;
+                    
+                    // Check if user is on Brave browser
+                    var isBrave = navigator.brave && typeof navigator.brave.isBrave === 'function';
+                    
+                    if (!cookiesEnabled || isBrave) {{
+                        // Show Brave-specific instructions
+                        document.getElementById('brave-message').style.display = 'block';
+                        
+                        // Still redirect after showing message
+                        setTimeout(function() {{
+                            window.location.href = "{final_redirect}";
+                        }}, 5000);
+                    }} else {{
+                        // Cookies work, redirect immediately
+                        window.location.href = "{final_redirect}";
+                    }}
+                }}
+                
+                // Run check when page loads
+                window.onload = checkCookiesAndRedirect;
+            </script>
+        </head>
+        <body>
+            <h2>🎉 Authentication Successful!</h2>
+            <p>Redirecting you back to MentorMate...</p>
+            
+            <div id="brave-message" class="brave-instructions">
+                <h3>⚠️ Cookie Settings Required for Brave Browser</h3>
+                <p>Brave browser blocks third-party cookies by default. To use MentorMate, please:</p>
+                <ol>
+                    <li>Click the <strong>Brave Shields</strong> icon (lion icon) in the address bar</li>
+                    <li>Click on <strong>"Advanced View"</strong> or <strong>"Advanced Controls"</strong></li>
+                    <li>Under <strong>"Cross-site cookies blocked"</strong>, select <strong>"Allow all cookies"</strong></li>
+                    <li>Refresh the page or log in again</li>
+                </ol>
+                <p><strong>Or:</strong> Go to <code>brave://settings/cookies</code> and add <code>oompiet-production.up.railway.app</code> to allowed sites.</p>
+                <p style="margin-top: 15px;">You'll be redirected automatically in 5 seconds...</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Create response with HTML
+        response = make_response(html_content, 200)
+        response.headers['Content-Type'] = 'text/html; charset=utf-8'
         
         # Force session to be saved to MongoDB
         current_app.session_interface.save_session(current_app, session, response)
@@ -628,7 +803,7 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
             current_app.logger.info("Added Partitioned attribute to cookie")
         
         current_app.logger.info(f"Set-Cookie header: {response.headers.get('Set-Cookie')[:200] if response.headers.get('Set-Cookie') else 'NOT SET'}")
-        current_app.logger.info(f"Google OAuth: Redirecting to {final_redirect}")
+        current_app.logger.info(f"Google OAuth: Showing instructions page, will redirect to {final_redirect}")
         return response
 
     except Exception as e:
