@@ -487,10 +487,33 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
             "name": db_user["name"],
             "picture": db_user.get("picture", "/static/default-profile.png")
         }
-
-        # Create response with explicit session save
-        response = make_response(redirect(f"{redirect_url}?{urlencode(params)}"))
-        # Force session to be saved to filesystem and cookie to be set
+        
+        final_redirect = f"{redirect_url}?{urlencode(params)}"
+        
+        # Create HTML page that sets cookie then redirects to frontend via JavaScript
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Redirecting...</title>
+            <script>
+                // Wait a moment for cookie to be set, then redirect
+                setTimeout(function() {{
+                    window.location.href = "{final_redirect}";
+                }}, 100);
+            </script>
+        </head>
+        <body>
+            <p>Authentication successful! Redirecting...</p>
+        </body>
+        </html>
+        """
+        
+        # Create response with HTML and explicit session save
+        response = make_response(html_content, 200)
+        response.headers['Content-Type'] = 'text/html'
+        
+        # Force session to be saved to MongoDB and cookie to be set
         current_app.session_interface.save_session(current_app, session, response)
         
         current_app.logger.info(f"Microsoft OAuth: Redirecting to {redirect_url}")
@@ -598,22 +621,43 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         current_app.logger.info(f"Session.permanent: {session.permanent}")
         current_app.logger.info(f"Session.modified: {session.modified}")
         
-        # Redirect to frontend with user info including picture
+        # Create HTML page that sets cookie then redirects to frontend via JavaScript
+        # This is necessary because Set-Cookie headers are lost on cross-domain redirects
         from urllib.parse import quote
         redirect_params = f"email={quote(db_user['email'])}&name={quote(db_user['name'])}&picture={quote(db_user.get('picture', '/static/default-profile.png'))}"
         final_redirect = f"{redirect_url}?{redirect_params}"
         
-        # Create response with explicit session save
-        response = make_response(redirect(final_redirect))
-        # Force session to be saved to filesystem and cookie to be set
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Redirecting...</title>
+            <script>
+                // Wait a moment for cookie to be set, then redirect
+                setTimeout(function() {{
+                    window.location.href = "{final_redirect}";
+                }}, 100);
+            </script>
+        </head>
+        <body>
+            <p>Authentication successful! Redirecting...</p>
+        </body>
+        </html>
+        """
+        
+        # Create response with HTML and explicit session save
+        response = make_response(html_content, 200)
+        response.headers['Content-Type'] = 'text/html'
+        
+        # Force session to be saved to MongoDB and cookie to be set
         current_app.session_interface.save_session(current_app, session, response)
         
         # Log the cookie being set
         set_cookie_header = response.headers.get('Set-Cookie')
         current_app.logger.info(f"Set-Cookie header present: {set_cookie_header is not None}")
         if set_cookie_header:
-            current_app.logger.info(f"Set-Cookie value length: {len(set_cookie_header)}")
-        current_app.logger.info(f"Google OAuth: Redirecting to {redirect_url}")
+            current_app.logger.info(f"Set-Cookie value: {set_cookie_header[:200]}")
+        current_app.logger.info(f"Google OAuth: HTML redirect page to {final_redirect}")
         return response
 
     except Exception as e:
