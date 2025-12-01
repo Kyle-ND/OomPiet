@@ -95,7 +95,16 @@ app.config['SESSION_COOKIE_DOMAIN'] = None  # Let browser handle domain
 # Initialize Flask-Session (server-side sessions)
 Session(app)
 
+# Log session configuration for debugging
 app.logger.setLevel(logging.INFO)
+app.logger.info("=== SESSION CONFIGURATION ===")
+app.logger.info(f"SESSION_TYPE: {app.config.get('SESSION_TYPE')}")
+app.logger.info(f"SESSION_MONGODB configured: {app.config.get('SESSION_MONGODB') is not None}")
+app.logger.info(f"SESSION_MONGODB_DB: {app.config.get('SESSION_MONGODB_DB')}")
+app.logger.info(f"SESSION_MONGODB_COLLECT: {app.config.get('SESSION_MONGODB_COLLECT')}")
+app.logger.info(f"Session interface class: {type(app.session_interface).__name__}")
+app.logger.info("=== END SESSION CONFIGURATION ===")
+
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 db = client["geotech_db"]
 users_collection = db["users"]
@@ -257,6 +266,7 @@ def signup():
 def check_session():
     """Check if user has active session"""
     app.logger.info("=== CHECK SESSION START ===")
+    app.logger.info(f"Session interface type: {type(app.session_interface).__name__}")
     app.logger.info(f"Request cookies: {dict(request.cookies)}")
     app.logger.info(f"Session cookie name: {app.config['SESSION_COOKIE_NAME']}")
     app.logger.info(f"Session cookie value: {request.cookies.get(app.config['SESSION_COOKIE_NAME'], 'NOT FOUND')}")
@@ -264,14 +274,18 @@ def check_session():
     app.logger.info(f"Session.permanent: {session.permanent}")
     app.logger.info(f"'user' in session: {'user' in session}")
     
-    # Check filesystem session directory
-    session_dir = app.config.get('SESSION_FILE_DIR')
-    if session_dir and os.path.exists(session_dir):
-        files = os.listdir(session_dir)
-        app.logger.info(f"Session files in {session_dir}: {len(files)} files")
-        app.logger.info(f"Session files: {files[:5] if len(files) > 5 else files}")  # Show first 5
-    else:
-        app.logger.warning(f"Session directory not found or not configured: {session_dir}")
+    # Check MongoDB session collection
+    if app.config.get('SESSION_TYPE') == 'mongodb':
+        try:
+            session_collection = client['geotech_db']['flask_sessions']
+            session_count = session_collection.count_documents({})
+            app.logger.info(f"MongoDB sessions collection: {session_count} documents")
+            
+            # Try to find session by cookie value (it's signed, so we can't directly match)
+            all_sessions = list(session_collection.find().limit(5))
+            app.logger.info(f"Sample sessions in MongoDB: {len(all_sessions)}")
+        except Exception as e:
+            app.logger.error(f"Error checking MongoDB sessions: {e}")
     
     is_authenticated = 'user' in session
     
