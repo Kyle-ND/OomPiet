@@ -633,7 +633,7 @@ def get_microsoft_profile_picture(microsoft, token):
 
 
 
-def handle_microsoft_callback(users_collection, initialize_new_user_dashboard_stats):
+def handle_google_callback(google, users_collection, initialize_new_user_dashboard_stats):
     # Get OAuth states collection from app
     from flask import current_app
     oauth_states_collection = current_app.extensions.get('oauth_states_collection')
@@ -645,19 +645,7 @@ def handle_microsoft_callback(users_collection, initialize_new_user_dashboard_st
             raise ValueError("State parameter missing")
         
         # Look up state in MongoDB
-        state_doc = oauth_states_collection.find_one({"state": state, "provider": "microsoft"})
-        if not state_doc:
-            raise ValueError("State verification failed - state not found")
-        
-        # Check if state has expired
-        from datetime import datetime, timezone
-        if datetime.now(timezone.utc) > state_doc['expires_at']:
-            oauth_states_collection.delete_one({"_id": state_doc['_id']})
-            raise ValueError("State verification failed - state expired")
-        
-        # Get redirect URL and cleanup
-        redirect_url = state_doc.get('redirect_url', 'https://mentormate-client.vercel.app/microsoft-callback')
-        oauth_states_collection.delete_one({"_id": state_doc['_id']})ion.find_one({"state": state, "provider": "google"})
+        state_doc = oauth_states_collection.find_one({"state": state, "provider": "google"})
         if not state_doc:
             raise ValueError("State verification failed - state not found")
         
