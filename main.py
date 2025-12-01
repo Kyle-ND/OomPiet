@@ -91,6 +91,7 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Required for cross-site cookie
 app.config['SESSION_COOKIE_SECURE'] = True  # Required for production HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_DOMAIN'] = None  # Let browser handle domain
+app.config['SESSION_COOKIE_PARTITIONED'] = True  # Allow cross-site cookies in modern browsers
 
 # Initialize Flask-Session (server-side sessions)
 Session(app)

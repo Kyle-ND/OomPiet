@@ -490,31 +490,20 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         
         final_redirect = f"{redirect_url}?{urlencode(params)}"
         
-        # Create HTML page that sets cookie then redirects to frontend via JavaScript
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Redirecting...</title>
-            <script>
-                // Wait a moment for cookie to be set, then redirect
-                setTimeout(function() {{
-                    window.location.href = "{final_redirect}";
-                }}, 100);
-            </script>
-        </head>
-        <body>
-            <p>Authentication successful! Redirecting...</p>
-        </body>
-        </html>
-        """
+        # Create response and save session
+        response = make_response(redirect(final_redirect))
         
-        # Create response with HTML and explicit session save
-        response = make_response(html_content, 200)
-        response.headers['Content-Type'] = 'text/html'
-        
-        # Force session to be saved to MongoDB and cookie to be set
+        # Force session to be saved to MongoDB
         current_app.session_interface.save_session(current_app, session, response)
+        
+        # Manually add Partitioned attribute to Set-Cookie header for cross-site cookies
+        set_cookie_header = response.headers.get('Set-Cookie')
+        if set_cookie_header and 'Partitioned' not in set_cookie_header:
+            response.headers['Set-Cookie'] = set_cookie_header + '; Partitioned'
+            current_app.logger.info("Added Partitioned attribute to cookie")
+        
+        current_app.logger.info(f"Set-Cookie header: {response.headers.get('Set-Cookie')[:200] if response.headers.get('Set-Cookie') else 'NOT SET'}")
+        current_app.logger.info(f"Microsoft OAuth: Redirecting to {final_redirect}")
         
         current_app.logger.info(f"Microsoft OAuth: Redirecting to {redirect_url}")
         return response
@@ -621,43 +610,25 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         current_app.logger.info(f"Session.permanent: {session.permanent}")
         current_app.logger.info(f"Session.modified: {session.modified}")
         
-        # Create HTML page that sets cookie then redirects to frontend via JavaScript
-        # This is necessary because Set-Cookie headers are lost on cross-domain redirects
+        # Redirect to frontend with user info
         from urllib.parse import quote
         redirect_params = f"email={quote(db_user['email'])}&name={quote(db_user['name'])}&picture={quote(db_user.get('picture', '/static/default-profile.png'))}"
         final_redirect = f"{redirect_url}?{redirect_params}"
         
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Redirecting...</title>
-            <script>
-                // Wait a moment for cookie to be set, then redirect
-                setTimeout(function() {{
-                    window.location.href = "{final_redirect}";
-                }}, 100);
-            </script>
-        </head>
-        <body>
-            <p>Authentication successful! Redirecting...</p>
-        </body>
-        </html>
-        """
+        # Create response and save session
+        response = make_response(redirect(final_redirect))
         
-        # Create response with HTML and explicit session save
-        response = make_response(html_content, 200)
-        response.headers['Content-Type'] = 'text/html'
-        
-        # Force session to be saved to MongoDB and cookie to be set
+        # Force session to be saved to MongoDB
         current_app.session_interface.save_session(current_app, session, response)
         
-        # Log the cookie being set
+        # Manually add Partitioned attribute to Set-Cookie header for cross-site cookies
         set_cookie_header = response.headers.get('Set-Cookie')
-        current_app.logger.info(f"Set-Cookie header present: {set_cookie_header is not None}")
-        if set_cookie_header:
-            current_app.logger.info(f"Set-Cookie value: {set_cookie_header[:200]}")
-        current_app.logger.info(f"Google OAuth: HTML redirect page to {final_redirect}")
+        if set_cookie_header and 'Partitioned' not in set_cookie_header:
+            response.headers['Set-Cookie'] = set_cookie_header + '; Partitioned'
+            current_app.logger.info("Added Partitioned attribute to cookie")
+        
+        current_app.logger.info(f"Set-Cookie header: {response.headers.get('Set-Cookie')[:200] if response.headers.get('Set-Cookie') else 'NOT SET'}")
+        current_app.logger.info(f"Google OAuth: Redirecting to {final_redirect}")
         return response
 
     except Exception as e:
