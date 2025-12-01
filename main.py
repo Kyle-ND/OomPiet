@@ -281,9 +281,19 @@ def check_session():
             session_count = session_collection.count_documents({})
             app.logger.info(f"MongoDB sessions collection: {session_count} documents")
             
-            # Try to find session by cookie value (it's signed, so we can't directly match)
-            all_sessions = list(session_collection.find().limit(5))
-            app.logger.info(f"Sample sessions in MongoDB: {len(all_sessions)}")
+            # Check session document structure
+            sample_session = session_collection.find_one()
+            if sample_session:
+                app.logger.info(f"Sample session _id type: {type(sample_session.get('_id'))}")
+                app.logger.info(f"Sample session _id value: {sample_session.get('_id')}")
+                app.logger.info(f"Sample session keys: {list(sample_session.keys())}")
+            
+            # Try to find session by cookie value
+            cookie_val = request.cookies.get(app.config['SESSION_COOKIE_NAME'], '').split('.')[0]
+            app.logger.info(f"Looking for session with _id: {cookie_val}")
+            found_session = session_collection.find_one({"_id": cookie_val})
+            app.logger.info(f"Session found by _id lookup: {found_session is not None}")
+            
         except Exception as e:
             app.logger.error(f"Error checking MongoDB sessions: {e}")
     
