@@ -74,12 +74,19 @@ CORS(app,
 
 app.secret_key = SECRET_KEY
 
-# Configure server-side sessions
-app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_FILE_DIR'] = os.path.join(os.path.dirname(__file__), 'flask_session')
+# MongoDB Setup (must be before session config for MongoDB sessions)
+client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, connectTimeoutMS=5000)
+
+# Configure server-side sessions with MongoDB for Railway container compatibility
+app.config['SESSION_TYPE'] = 'mongodb'
+app.config['SESSION_MONGODB'] = client
+app.config['SESSION_MONGODB_DB'] = 'geotech_db'
+app.config['SESSION_MONGODB_COLLECT'] = 'flask_sessions'
 app.config['SESSION_COOKIE_NAME'] = 'google-login-session'
+app.config['SESSION_PERMANENT'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)
 app.config['SESSION_USE_SIGNER'] = True
+app.config['SESSION_KEY_PREFIX'] = 'session:'
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Required for cross-site cookies
 app.config['SESSION_COOKIE_SECURE'] = True  # Required for production HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -90,9 +97,6 @@ Session(app)
 
 app.logger.setLevel(logging.INFO)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
-
-# MongoDB Setup
-client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, connectTimeoutMS=5000)
 db = client["geotech_db"]
 users_collection = db["users"]
 dashboard_stats_collection = db["dashboard_stats"]
