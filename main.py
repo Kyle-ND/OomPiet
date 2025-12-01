@@ -56,12 +56,17 @@ PAYFAST_SANDBOX = os.getenv('PAYFAST_SANDBOX', 'true').lower() == 'true'
 
 app = Flask(__name__, static_folder='static')
 
+# CRITICAL: CORS configuration for cross-origin requests from Vercel
 CORS(app, 
-     origins=["http://localhost:3000","https://mentormate-client.vercel.app"],  # Specific origins for credentials
-     methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
-     expose_headers=["Content-Type", "Authorization"],
-     supports_credentials=True,  # Enable credentials with specific origins
+     origins=[
+         'https://mentormate-client.vercel.app',
+         'http://localhost:3000',
+         'https://*.vercel.app'  # Allow Vercel preview deployments
+     ],
+     supports_credentials=True,
+     allow_headers=['Content-Type', 'Authorization', 'Accept'],
+     methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+     expose_headers=['Set-Cookie'],
      max_age=3600
 )
 
