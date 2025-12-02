@@ -402,35 +402,19 @@ def login():
     app.logger.info(f"BEFORE authorize_redirect - session.modified: {session.modified}")
     
     redirect_uri = url_for('google_callback', _external=True)
+    
+    # CRITICAL: Set session.modified BEFORE authorize_redirect to ensure Flask-Session saves
+    session.modified = True
+    app.logger.info("Set session.modified = True BEFORE authorize_redirect")
+    
     # Let Authlib automatically generate and store state in session
     response = google.authorize_redirect(redirect_uri=redirect_uri)
     
-    # CRITICAL FIX: Force Flask to save session to MongoDB NOW (not after response)
-    # This prevents race condition where callback arrives before session is saved
-    session.modified = True
-    app.session_interface.save_session(app, session, response)
-    
-    # VERIFY: Check the cookie and MongoDB
-    set_cookie_header = response.headers.get('Set-Cookie', '')
-    if set_cookie_header and 'google-login-session=' in set_cookie_header:
-        cookie_part = set_cookie_header.split('google-login-session=')[1].split(';')[0]
-        session_id = cookie_part.split('.')[0] if '.' in cookie_part else cookie_part
-        
-        # Verify it's in MongoDB
-        session_collection = client['geotech_db']['flask_sessions']
-        db_session = session_collection.find_one({'id': session_id})
-        
-        if db_session:
-            import pickle
-            session_data = pickle.loads(db_session['val'])
-            state_keys = [k for k in session_data.keys() if k.startswith('_state_')]
-            app.logger.info(f"✓ Session {session_id[:20]}... saved to MongoDB with state: {len(state_keys) > 0}")
-        else:
-            app.logger.error(f"❌ Session {session_id[:20]}... NOT in MongoDB after save_session()!")
-    else:
-        app.logger.error("❌ No Set-Cookie header found after save_session()!")
-    
+    app.logger.info(f"Session after authorize_redirect: {dict(session)}")
+    state_keys = [k for k in session.keys() if k.startswith('_state_')]
+    app.logger.info(f"State keys in session: {state_keys}")
     app.logger.info("=== GOOGLE LOGIN END ===")
+    
     return response
 
 @app.route('/login/microsoft')
@@ -471,36 +455,19 @@ def microsoft_login():
     
     app.logger.info(f"Session after clear: {dict(session)}")
     
+    # CRITICAL: Set session.modified BEFORE authorize_redirect to ensure Flask-Session saves
+    session.modified = True
+    app.logger.info("Set session.modified = True BEFORE authorize_redirect")
+    
     # Generate authorization URL - let Authlib handle state automatically
     redirect_uri = url_for('microsoft_callback', _external=True)
     response = microsoft.authorize_redirect(redirect_uri)
     
-    # CRITICAL FIX: Force Flask to save session to MongoDB NOW (not after response)
-    # This prevents race condition where callback arrives before session is saved
-    session.modified = True
-    app.session_interface.save_session(app, session, response)
-    
-    # VERIFY: Check the cookie and MongoDB
-    set_cookie_header = response.headers.get('Set-Cookie', '')
-    if set_cookie_header and 'google-login-session=' in set_cookie_header:
-        cookie_part = set_cookie_header.split('google-login-session=')[1].split(';')[0]
-        session_id = cookie_part.split('.')[0] if '.' in cookie_part else cookie_part
-        
-        # Verify it's in MongoDB
-        session_collection = client['geotech_db']['flask_sessions']
-        db_session = session_collection.find_one({'id': session_id})
-        
-        if db_session:
-            import pickle
-            session_data = pickle.loads(db_session['val'])
-            state_keys = [k for k in session_data.keys() if k.startswith('_state_')]
-            app.logger.info(f"✓ Session {session_id[:20]}... saved to MongoDB with state: {len(state_keys) > 0}")
-        else:
-            app.logger.error(f"❌ Session {session_id[:20]}... NOT in MongoDB after save_session()!")
-    else:
-        app.logger.error("❌ No Set-Cookie header found after save_session()!")
-    
+    app.logger.info(f"Session after authorize_redirect: {dict(session)}")
+    state_keys = [k for k in session.keys() if k.startswith('_state_')]
+    app.logger.info(f"State keys in session: {state_keys}")
     app.logger.info("=== MICROSOFT LOGIN END ===")
+    
     return response
 
 @app.route('/microsoft/callback')
@@ -572,6 +539,40 @@ def submit_feedback():
 def invalidate_session():
     """Invalidate current session (called when user logs in from another device)"""
     return UserAuth.handle_invalidate_session()
+
+@app.route('/api/clear-all-sessions', methods=['POST'])
+def clear_all_sessions():
+    """Clear all sessions from MongoDB - useful for testing clean state"""
+    try:
+        session_collection = client['geotech_db']['flask_sessions']
+        result = session_collection.delete_many({})
+        
+        # Also clear current session
+        session.clear()
+        
+        response = jsonify({
+            "success": True,
+            "message": f"Cleared {result.deleted_count} sessions from MongoDB",
+            "deleted_count": result.deleted_count
+        })
+        
+        # Delete cookie
+        response.set_cookie(
+            app.config['SESSION_COOKIE_NAME'],
+            value='',
+            max_age=0,
+            secure=True,
+            httponly=True,
+            samesite='None',
+            path='/'
+        )
+        
+        app.logger.info(f"Cleared {result.deleted_count} sessions from MongoDB")
+        return response, 200
+        
+    except Exception as e:
+        app.logger.error(f"Error clearing sessions: {e}")
+        return jsonify({"error": str(e)}), 500
 
 # Session conflict route removed - React frontend handles this via API
 
