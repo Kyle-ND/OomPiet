@@ -403,18 +403,40 @@ def login():
     
     redirect_uri = url_for('google_callback', _external=True)
     
-    # CRITICAL: Set session.modified BEFORE authorize_redirect to ensure Flask-Session saves
-    session.modified = True
-    app.logger.info("Set session.modified = True BEFORE authorize_redirect")
-    
     # Let Authlib automatically generate and store state in session
     response = google.authorize_redirect(redirect_uri=redirect_uri)
     
     app.logger.info(f"Session after authorize_redirect: {dict(session)}")
     state_keys = [k for k in session.keys() if k.startswith('_state_')]
     app.logger.info(f"State keys in session: {state_keys}")
-    app.logger.info("=== GOOGLE LOGIN END ===")
     
+    # CRITICAL FIX: Force synchronous MongoDB save BEFORE returning response
+    # This prevents race condition where callback arrives before session is saved
+    session.modified = True
+    try:
+        app.session_interface.save_session(app, session, response)
+        
+        # Verify save succeeded
+        cookie_header = response.headers.get('Set-Cookie', '')
+        if 'google-login-session=' in cookie_header:
+            cookie_value = cookie_header.split('google-login-session=')[1].split(';')[0]
+            session_id = cookie_value.split('.')[0] if '.' in cookie_value else cookie_value
+            
+            session_collection = client['geotech_db']['flask_sessions']
+            db_session = session_collection.find_one({'id': session_id})
+            
+            if db_session:
+                app.logger.info(f"✓ Session {session_id[:20]}... saved to MongoDB BEFORE response sent")
+            else:
+                app.logger.error(f"✗ Session {session_id[:20]}... NOT in MongoDB after save_session()!")
+        else:
+            app.logger.warning("No Set-Cookie header found after save_session()")
+            
+    except Exception as e:
+        app.logger.error(f"Session save failed: {type(e).__name__}: {e}")
+        # Don't crash - continue with redirect, recovery function will handle it
+    
+    app.logger.info("=== GOOGLE LOGIN END ===")
     return response
 
 @app.route('/login/microsoft')
@@ -455,10 +477,6 @@ def microsoft_login():
     
     app.logger.info(f"Session after clear: {dict(session)}")
     
-    # CRITICAL: Set session.modified BEFORE authorize_redirect to ensure Flask-Session saves
-    session.modified = True
-    app.logger.info("Set session.modified = True BEFORE authorize_redirect")
-    
     # Generate authorization URL - let Authlib handle state automatically
     redirect_uri = url_for('microsoft_callback', _external=True)
     response = microsoft.authorize_redirect(redirect_uri)
@@ -466,8 +484,34 @@ def microsoft_login():
     app.logger.info(f"Session after authorize_redirect: {dict(session)}")
     state_keys = [k for k in session.keys() if k.startswith('_state_')]
     app.logger.info(f"State keys in session: {state_keys}")
-    app.logger.info("=== MICROSOFT LOGIN END ===")
     
+    # CRITICAL FIX: Force synchronous MongoDB save BEFORE returning response
+    # This prevents race condition where callback arrives before session is saved
+    session.modified = True
+    try:
+        app.session_interface.save_session(app, session, response)
+        
+        # Verify save succeeded
+        cookie_header = response.headers.get('Set-Cookie', '')
+        if 'google-login-session=' in cookie_header:
+            cookie_value = cookie_header.split('google-login-session=')[1].split(';')[0]
+            session_id = cookie_value.split('.')[0] if '.' in cookie_value else cookie_value
+            
+            session_collection = client['geotech_db']['flask_sessions']
+            db_session = session_collection.find_one({'id': session_id})
+            
+            if db_session:
+                app.logger.info(f"✓ Session {session_id[:20]}... saved to MongoDB BEFORE response sent")
+            else:
+                app.logger.error(f"✗ Session {session_id[:20]}... NOT in MongoDB after save_session()!")
+        else:
+            app.logger.warning("No Set-Cookie header found after save_session()")
+            
+    except Exception as e:
+        app.logger.error(f"Session save failed: {type(e).__name__}: {e}")
+        # Don't crash - continue with redirect, recovery function will handle it
+    
+    app.logger.info("=== MICROSOFT LOGIN END ===")
     return response
 
 @app.route('/microsoft/callback')
