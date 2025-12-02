@@ -371,25 +371,23 @@ def login():
     app.logger.info(f"Session before clear: {dict(session)}")
     
     # CRITICAL: Must regenerate session to avoid duplicate cookie issue
-    # Get the session interface to manually delete old session from MongoDB
-    from flask.sessions import SessionInterface
-    session_interface = app.session_interface
+    # Get old session ID BEFORE clearing (clearing generates new ID)
+    old_cookie = request.cookies.get(app.config['SESSION_COOKIE_NAME'], '')
+    old_sid = old_cookie.split('.')[0] if old_cookie else None
     
-    # Get old session ID before clearing
-    old_sid = session.get('_id') or request.cookies.get(app.config['SESSION_COOKIE_NAME'], '').split('.')[0]
+    app.logger.info(f"Old session ID from cookie: {old_sid[:20] + '...' if old_sid else 'None'}")
     
-    # Clear the session completely (this will generate a new session ID)
-    session.clear()
-    
-    # If there was an old session, delete it from MongoDB
+    # Delete old session from MongoDB BEFORE clearing (to avoid losing reference)
     if old_sid:
         try:
             session_collection = client['geotech_db']['flask_sessions']
             result = session_collection.delete_one({"id": old_sid})
-            app.logger.info(f"Deleted old session from MongoDB: {old_sid}, deleted: {result.deleted_count}")
+            app.logger.info(f"Deleted old session from MongoDB: deleted_count={result.deleted_count}")
         except Exception as e:
             app.logger.warning(f"Could not delete old session: {e}")
     
+    # NOW clear the session (this generates a NEW session ID)
+    session.clear()
     # Set redirect URL for callback
     session['redirect_url'] = "https://mentormate-client.vercel.app/google-callback"
     session.modified = True
@@ -414,20 +412,23 @@ def microsoft_login():
     app.logger.info(f"Session before clear: {dict(session)}")
     
     # CRITICAL: Must regenerate session to avoid duplicate cookie issue
-    # Get old session ID before clearing
-    old_sid = session.get('_id') or request.cookies.get(app.config['SESSION_COOKIE_NAME'], '').split('.')[0]
+    # Get old session ID BEFORE clearing (clearing generates new ID)
+    old_cookie = request.cookies.get(app.config['SESSION_COOKIE_NAME'], '')
+    old_sid = old_cookie.split('.')[0] if old_cookie else None
     
-    # Clear the session completely (this will generate a new session ID)
-    session.clear()
+    app.logger.info(f"Old session ID from cookie: {old_sid[:20] + '...' if old_sid else 'None'}")
     
-    # If there was an old session, delete it from MongoDB
+    # Delete old session from MongoDB BEFORE clearing (to avoid losing reference)
     if old_sid:
         try:
             session_collection = client['geotech_db']['flask_sessions']
             result = session_collection.delete_one({"id": old_sid})
-            app.logger.info(f"Deleted old session from MongoDB: {old_sid}, deleted: {result.deleted_count}")
+            app.logger.info(f"Deleted old session from MongoDB: deleted_count={result.deleted_count}")
         except Exception as e:
             app.logger.warning(f"Could not delete old session: {e}")
+    
+    # NOW clear the session (this generates a NEW session ID)
+    session.clear()
     
     # Set redirect URL for callback
     session['redirect_url'] = "https://mentormate-client.vercel.app/microsoft-callback"
