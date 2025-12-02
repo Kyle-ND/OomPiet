@@ -341,18 +341,21 @@ def reset_password():
 # @limiter.limit("5 per minute")
 def login():
     app.logger.info("=== GOOGLE LOGIN START ===")
-    app.logger.info(f"Request cookies before clear: {request.cookies}")
+    app.logger.info(f"Request cookies: {list(request.cookies.keys())}")
+    app.logger.info(f"Session before: {dict(session)}")
     
-    # Clear only user data, not the entire session (to prevent duplicate cookies)
+    # Clear any existing user/session data (but keep session ID if it exists)
+    # This allows re-login without creating duplicate cookies
     session.pop('user', None)
     session.pop('session_id', None)
     session.pop('upload_access', None)
+    session.pop('redirect_url', None)
     
     # Set redirect URL for callback
     session['redirect_url'] = "https://mentormate-client.vercel.app/google-callback"
     session.modified = True
     
-    app.logger.info(f"Session after setting redirect_url: {dict(session)}")
+    app.logger.info(f"Session after cleanup: {dict(session)}")
     
     redirect_uri = url_for('google_callback', _external=True)
     # Let Authlib automatically generate and store state in session
@@ -367,18 +370,29 @@ def login():
 @app.route('/login/microsoft')
 def microsoft_login():
     """Initiate Microsoft OAuth login"""
-    # Clear only user data, not the entire session (to prevent duplicate cookies)
+    app.logger.info("=== MICROSOFT LOGIN START ===")
+    app.logger.info(f"Request cookies: {list(request.cookies.keys())}")
+    app.logger.info(f"Session before: {dict(session)}")
+    
+    # Clear any existing user/session data
     session.pop('user', None)
     session.pop('session_id', None)
     session.pop('upload_access', None)
+    session.pop('redirect_url', None)
     
     # Set redirect URL for callback
     session['redirect_url'] = "https://mentormate-client.vercel.app/microsoft-callback"
     session.modified = True
     
+    app.logger.info(f"Session after cleanup: {dict(session)}")
+    
     # Generate authorization URL - let Authlib handle state automatically
     redirect_uri = url_for('microsoft_callback', _external=True)
-    return microsoft.authorize_redirect(redirect_uri)
+    response = microsoft.authorize_redirect(redirect_uri)
+    
+    app.logger.info(f"Session after authorize_redirect: {dict(session)}")
+    app.logger.info("=== MICROSOFT LOGIN END ===")
+    return response
 
 @app.route('/microsoft/callback')
 def microsoft_callback():
@@ -411,27 +425,32 @@ def check_upload_access():
 def logout():
     user_email = session.get('user', {}).get('email')
     if user_email:
-        #remove_user_session(user_email)
         AuthUtils.remove_user_session(user_email)
     
-    # Clear all session data but keep the session cookie (don't call session.clear())
-    # This prevents duplicate cookie issues when re-logging in
-    session.pop('user', None)
-    session.pop('session_id', None)
-    session.pop('upload_access', None)
-    session.pop('redirect_url', None)
-    # Clear any OAuth state keys (they start with '_state_')
-    oauth_keys = [k for k in session.keys() if k.startswith('_state_')]
-    for key in oauth_keys:
-        session.pop(key, None)
-    session.modified = True
+    # CRITICAL: Must call session.clear() to completely remove session from MongoDB
+    # This ensures no stale session data persists
+    session.clear()
     
-    # Check if request expects JSON or redirect
+    # Create response
     if request.method == 'POST' or request.headers.get('Content-Type') == 'application/json':
-        return jsonify({"success": True, "message": "Logged out successfully"})
+        response = jsonify({"success": True, "message": "Logged out successfully"})
     else:
-        # Redirect to frontend homepage (same as login redirect)
-        return redirect("https://mentormate-client.vercel.app/mentormate-homepage")
+        response = redirect("https://mentormate-client.vercel.app/mentormate-homepage")
+    
+    # CRITICAL: Explicitly delete the session cookie by setting Max-Age=0
+    # This prevents duplicate cookie issues on re-login
+    response.set_cookie(
+        app.config['SESSION_COOKIE_NAME'],
+        value='',
+        max_age=0,
+        secure=True,
+        httponly=True,
+        samesite='None',
+        path='/'
+    )
+    
+    app.logger.info("Logout: Session cleared and cookie deleted")
+    return response
 
 # Template routes removed - React frontend handles all UI
 
