@@ -75,22 +75,28 @@ def recover_oauth_session_from_cookies(provider_name, state_in_url):
         current_app.logger.warning("No valid cookie IDs found")
         return False
     
+    current_app.logger.info(f"Extracted cookie IDs: {[cid[:20] + '...' for cid in cookie_ids]}")
+    
     # Batch query for all cookies at once (performance optimization)
-    found_sessions = session_collection.find({"id": {"$in": cookie_ids}})
+    found_sessions = list(session_collection.find({"id": {"$in": cookie_ids}}))
+    current_app.logger.info(f"MongoDB found {len(found_sessions)} sessions for {len(cookie_ids)} cookies")
     
     request_ip = request.remote_addr
     current_time = datetime.now(timezone.utc)
     
     for found_session in found_sessions:
         cookie_id = found_session.get('id')
+        current_app.logger.info(f"Checking session {cookie_id[:20]}...")
         
         try:
             # Deserialize session data
             # Note: Flask-Session uses pickle. For production, consider migrating to JSON-based sessions
             session_data = pickle.loads(found_session['val'])
+            current_app.logger.info(f"  Deserialized successfully. Keys: {list(session_data.keys())}")
             
             # Check if this session has the state we're looking for
             if state_key not in session_data:
+                current_app.logger.info(f"  State key {state_key} not found in session")
                 continue
             
             current_app.logger.info(f"Found state in session {cookie_id[:20]}...")
@@ -102,9 +108,10 @@ def recover_oauth_session_from_cookies(provider_name, state_in_url):
             if state_exp:
                 state_created = datetime.fromtimestamp(state_exp - 600, tz=timezone.utc)  # exp is 10 min from creation
                 age_minutes = (current_time - state_created).total_seconds() / 60
+                current_app.logger.info(f"  Session age: {age_minutes:.1f} minutes")
                 
                 if age_minutes > 10:
-                    current_app.logger.warning(f"Session too old ({age_minutes:.1f} minutes), skipping")
+                    current_app.logger.warning(f"  Session too old ({age_minutes:.1f} minutes), skipping")
                     continue
             
             # SECURITY: Optionally validate IP address
