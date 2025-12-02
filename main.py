@@ -340,15 +340,26 @@ def reset_password():
 @app.route('/login/google')  # Add explicit Google login route
 # @limiter.limit("5 per minute")
 def login():
+    app.logger.info("=== GOOGLE LOGIN START ===")
+    app.logger.info(f"Request cookies before clear: {request.cookies}")
+    
     session.clear()
 
     # Store redirect URL in session for callback
     session['redirect_url'] = "https://mentormate-client.vercel.app/google-callback"
     session.modified = True
     
+    app.logger.info(f"Session after setting redirect_url: {dict(session)}")
+    
     redirect_uri = url_for('google_callback', _external=True)
     # Let Authlib automatically generate and store state in session
-    return google.authorize_redirect(redirect_uri=redirect_uri)
+    response = google.authorize_redirect(redirect_uri=redirect_uri)
+    
+    app.logger.info(f"Session after authorize_redirect: {dict(session)}")
+    app.logger.info(f"Response headers: {response.headers}")
+    app.logger.info("=== GOOGLE LOGIN END ===")
+    
+    return response
 
 @app.route('/login/microsoft')
 def microsoft_login():

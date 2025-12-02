@@ -625,12 +625,19 @@ def get_microsoft_profile_picture(microsoft, token):
 
 
 def handle_google_callback(google, users_collection, initialize_new_user_dashboard_stats):
+    current_app.logger.info("=== GOOGLE CALLBACK START ===")
+    current_app.logger.info(f"Request cookies: {request.cookies}")
+    current_app.logger.info(f"Session contents: {dict(session)}")
+    current_app.logger.info(f"State in URL: {request.args.get('state')}")
+    
     # Get redirect URL from session
     redirect_url = session.get('redirect_url', 'https://mentormate-client.vercel.app/google-callback')
     
     try:
         # Authlib automatically verifies state from session
+        current_app.logger.info("Calling authorize_access_token()...")
         token = google.authorize_access_token()
+        current_app.logger.info(f"Token received: {token is not None}")
         if not token:
             raise ValueError("Failed to get access token")
 
