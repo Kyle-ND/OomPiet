@@ -390,7 +390,6 @@ def login():
     session.clear()
     # Set redirect URL for callback
     session['redirect_url'] = "https://mentormate-client.vercel.app/google-callback"
-    session.modified = True
     
     app.logger.info(f"Session after clear: {dict(session)}")
     
@@ -398,8 +397,13 @@ def login():
     # Let Authlib automatically generate and store state in session
     response = google.authorize_redirect(redirect_uri=redirect_uri)
     
+    # Mark session as modified AFTER Authlib adds the state
+    session.modified = True
+    
     app.logger.info(f"Session after authorize_redirect: {dict(session)}")
-    app.logger.info(f"New session ID: {session.get('_id') or 'pending'}")
+    state_keys = [k for k in session.keys() if k.startswith('_state_')]
+    app.logger.info(f"State keys in session: {state_keys}")
+    app.logger.info(f"Session will be saved to MongoDB with state: {len(state_keys) > 0}")
     app.logger.info("=== GOOGLE LOGIN END ===")
     
     return response
@@ -432,7 +436,6 @@ def microsoft_login():
     
     # Set redirect URL for callback
     session['redirect_url'] = "https://mentormate-client.vercel.app/microsoft-callback"
-    session.modified = True
     
     app.logger.info(f"Session after clear: {dict(session)}")
     
@@ -440,8 +443,13 @@ def microsoft_login():
     redirect_uri = url_for('microsoft_callback', _external=True)
     response = microsoft.authorize_redirect(redirect_uri)
     
+    # Mark session as modified AFTER Authlib adds the state
+    session.modified = True
+    
     app.logger.info(f"Session after authorize_redirect: {dict(session)}")
-    app.logger.info(f"New session ID: {session.get('_id') or 'pending'}")
+    state_keys = [k for k in session.keys() if k.startswith('_state_')]
+    app.logger.info(f"State keys in session: {state_keys}")
+    app.logger.info(f"Session will be saved to MongoDB with state: {len(state_keys) > 0}")
     app.logger.info("=== MICROSOFT LOGIN END ===")
     return response
 
