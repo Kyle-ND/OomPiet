@@ -456,6 +456,10 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
 
         db_user = users_collection.find_one({"email": user_data["email"]})
 
+        # CRITICAL: Clear any old session data and regenerate session ID
+        # This prevents issues when browser sends multiple session cookies
+        session.clear()
+        
         session_id = AuthUtils.create_user_session(user_data["email"])
 
         session.permanent = True
@@ -676,6 +680,10 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         # Fetch the full user record (including premium status)
         db_user = users_collection.find_one({"email": user_data["email"]})
 
+        # CRITICAL: Clear any old session data and regenerate session ID
+        # This prevents issues when browser sends multiple session cookies
+        session.clear()
+        
         # Create new session
         session_id = AuthUtils.create_user_session(user_data["email"]) 
 
