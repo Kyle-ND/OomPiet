@@ -409,47 +409,12 @@ def handle_reset_password(users_collection):
     
 
 def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_dashboard_stats):
-    # Get OAuth states collection from app
-    from flask import current_app
-    from datetime import datetime, timezone
-    oauth_states_collection = current_app.extensions.get('oauth_states_collection')
-    
-    # Default redirect URL in case of errors
-    redirect_url = "https://mentormate-client.vercel.app/microsoft-callback"
+    # Get redirect URL from session
+    redirect_url = session.get('redirect_url', "https://mentormate-client.vercel.app/microsoft-callback")
     
     try:
-        # Verify state from MongoDB
-        state = request.args.get('state')
-        if not state:
-            raise ValueError("State parameter missing")
-        
-        # Look up state in MongoDB
-        state_doc = oauth_states_collection.find_one({"state": state, "provider": "microsoft"})
-        if not state_doc:
-            raise ValueError("State verification failed - state not found")
-        
-        # Check if state has expired (handle both naive and aware datetimes)
-        expires_at = state_doc['expires_at']
-        if expires_at.tzinfo is None:
-            # MongoDB datetime is naive, make it aware
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
-        
-        if datetime.now(timezone.utc) > expires_at:
-            oauth_states_collection.delete_one({"_id": state_doc['_id']})
-            raise ValueError("State verification failed - state expired")
-        
-        # Get redirect URL and cleanup
-        redirect_url = state_doc.get('redirect_url', redirect_url)
-        oauth_states_collection.delete_one({"_id": state_doc['_id']})
-        
-        # Temporarily restore state to session for Authlib's internal CSRF check
-        session['oauth_state'] = state
-        session.modified = True
-
+        # Authlib automatically verifies state from session
         token = microsoft.authorize_access_token()
-        
-        # Clean up state from session
-        session.pop('oauth_state', None)
         if not token:
             raise ValueError("Failed to get access token")
 
@@ -660,48 +625,12 @@ def get_microsoft_profile_picture(microsoft, token):
 
 
 def handle_google_callback(google, users_collection, initialize_new_user_dashboard_stats):
-    # Get OAuth states collection from app
-    from flask import current_app
-    from datetime import datetime, timezone
-    oauth_states_collection = current_app.extensions.get('oauth_states_collection')
-    
-    # Default redirect URL in case of errors
-    redirect_url = 'https://mentormate-client.vercel.app/google-callback'
+    # Get redirect URL from session
+    redirect_url = session.get('redirect_url', 'https://mentormate-client.vercel.app/google-callback')
     
     try:
-        # Verify state from MongoDB
-        state = request.args.get('state')
-        if not state:
-            raise ValueError("State parameter missing")
-        
-        # Look up state in MongoDB
-        state_doc = oauth_states_collection.find_one({"state": state, "provider": "google"})
-        if not state_doc:
-            raise ValueError("State verification failed - state not found")
-        
-        # Check if state has expired (handle both naive and aware datetimes)
-        expires_at = state_doc['expires_at']
-        if expires_at.tzinfo is None:
-            # MongoDB datetime is naive, make it aware
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
-        
-        if datetime.now(timezone.utc) > expires_at:
-            oauth_states_collection.delete_one({"_id": state_doc['_id']})
-            raise ValueError("State verification failed - state expired")
-        
-        # Get redirect URL and cleanup
-        redirect_url = state_doc.get('redirect_url', redirect_url)
-        oauth_states_collection.delete_one({"_id": state_doc['_id']})
-
-        # Temporarily restore state to session for Authlib's internal CSRF check
-        session['oauth_state'] = state
-        session.modified = True
-
-        # Get token
+        # Authlib automatically verifies state from session
         token = google.authorize_access_token()
-        
-        # Clean up state from session
-        session.pop('oauth_state', None)
         if not token:
             raise ValueError("Failed to get access token")
 
