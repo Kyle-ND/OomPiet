@@ -295,11 +295,11 @@ def check_session():
                 app.logger.info(f"Sample session _id value: {sample_session.get('_id')}")
                 app.logger.info(f"Sample session keys: {list(sample_session.keys())}")
             
-            # Try to find session by cookie value
+            # Try to find session by cookie value in 'id' field (not '_id')
             cookie_val = request.cookies.get(app.config['SESSION_COOKIE_NAME'], '').split('.')[0]
             app.logger.info(f"Looking for session with _id: {cookie_val}")
-            found_session = session_collection.find_one({"_id": cookie_val})
-            app.logger.info(f"Session found by _id lookup: {found_session is not None}")
+            found_session = session_collection.find_one({"id": cookie_val})
+            app.logger.info(f"Session found by id lookup: {found_session is not None}")
             
         except Exception as e:
             app.logger.error(f"Error checking MongoDB sessions: {e}")
@@ -423,6 +423,7 @@ def logout():
         #remove_user_session(user_email)
         AuthUtils.remove_user_session(user_email)
     session.pop('upload_access', None)
+    session.pop('oauth_state', None)  # Clear OAuth state to prevent mismatch on re-login
     session.clear()
     
     # Check if request expects JSON or redirect
