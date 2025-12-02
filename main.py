@@ -405,45 +405,32 @@ def login():
     # Let Authlib automatically generate and store state in session
     response = google.authorize_redirect(redirect_uri=redirect_uri)
     
-    # DIAGNOSTIC: Understand the response and session state
-    app.logger.info(f"AFTER authorize_redirect - Response type: {type(response).__name__}")
-    app.logger.info(f"AFTER authorize_redirect - Session data: {dict(session)}")
-    app.logger.info(f"AFTER authorize_redirect - session.modified: {session.modified}")
+    # CRITICAL FIX: Force Flask to save session to MongoDB NOW (not after response)
+    # This prevents race condition where callback arrives before session is saved
+    session.modified = True
+    app.session_interface.save_session(app, session, response)
     
-    # Extract the session ID that will be sent in the cookie
+    # VERIFY: Check the cookie and MongoDB
     set_cookie_header = response.headers.get('Set-Cookie', '')
-    app.logger.info(f"Set-Cookie header present: {bool(set_cookie_header)}")
-    
     if set_cookie_header and 'google-login-session=' in set_cookie_header:
         cookie_part = set_cookie_header.split('google-login-session=')[1].split(';')[0]
-        session_id_from_cookie = cookie_part.split('.')[0] if '.' in cookie_part else cookie_part
-        app.logger.info(f"Session ID that WILL be in browser cookie: {session_id_from_cookie[:20]}...")
+        session_id = cookie_part.split('.')[0] if '.' in cookie_part else cookie_part
         
-        # CRITICAL TEST: Check if this session ID exists in MongoDB RIGHT NOW
-        try:
-            session_collection = client['geotech_db']['flask_sessions']
-            db_session = session_collection.find_one({'id': session_id_from_cookie})
-            app.logger.info(f"MongoDB has session {session_id_from_cookie[:20]}...: {db_session is not None}")
-            
-            if db_session:
-                # Session exists - check if it has the OAuth state
-                import pickle
-                session_data = pickle.loads(db_session['val'])
-                state_keys = [k for k in session_data.keys() if k.startswith('_state_')]
-                app.logger.info(f"✓ MongoDB session contains state keys: {state_keys}")
-            else:
-                app.logger.warning(f"❌ SESSION NOT IN MONGODB YET")
-                # Show what sessions DO exist
-                sample_sessions = list(session_collection.find({}, {'id': 1}).limit(3))
-                app.logger.info(f"Sample MongoDB session IDs: {[s['id'][:20] + '...' for s in sample_sessions]}")
-        except Exception as e:
-            app.logger.error(f"Error checking MongoDB: {e}")
+        # Verify it's in MongoDB
+        session_collection = client['geotech_db']['flask_sessions']
+        db_session = session_collection.find_one({'id': session_id})
+        
+        if db_session:
+            import pickle
+            session_data = pickle.loads(db_session['val'])
+            state_keys = [k for k in session_data.keys() if k.startswith('_state_')]
+            app.logger.info(f"✓ Session {session_id[:20]}... saved to MongoDB with state: {len(state_keys) > 0}")
+        else:
+            app.logger.error(f"❌ Session {session_id[:20]}... NOT in MongoDB after save_session()!")
+    else:
+        app.logger.error("❌ No Set-Cookie header found after save_session()!")
     
-    # Mark as modified to ensure Flask saves
-    session.modified = True
-    app.logger.info(f"Set session.modified = True before returning")
     app.logger.info("=== GOOGLE LOGIN END ===")
-    
     return response
 
 @app.route('/login/microsoft')
@@ -488,21 +475,30 @@ def microsoft_login():
     redirect_uri = url_for('microsoft_callback', _external=True)
     response = microsoft.authorize_redirect(redirect_uri)
     
-    # Mark session as modified AFTER Authlib adds the state
+    # CRITICAL FIX: Force Flask to save session to MongoDB NOW (not after response)
+    # This prevents race condition where callback arrives before session is saved
     session.modified = True
+    app.session_interface.save_session(app, session, response)
     
-    app.logger.info(f"Session after authorize_redirect: {dict(session)}")
-    state_keys = [k for k in session.keys() if k.startswith('_state_')]
-    app.logger.info(f"State keys in session: {state_keys}")
-    
-    # FORCE save session to MongoDB before returning redirect
-    # Flask-Session should do this automatically, but we'll verify
-    try:
-        # Manually trigger session save through the session interface
-        app.session_interface.save_session(app, session, response)
-        app.logger.info("✓ Manually saved session to MongoDB")
-    except Exception as e:
-        app.logger.error(f"✗ Failed to save session: {e}")
+    # VERIFY: Check the cookie and MongoDB
+    set_cookie_header = response.headers.get('Set-Cookie', '')
+    if set_cookie_header and 'google-login-session=' in set_cookie_header:
+        cookie_part = set_cookie_header.split('google-login-session=')[1].split(';')[0]
+        session_id = cookie_part.split('.')[0] if '.' in cookie_part else cookie_part
+        
+        # Verify it's in MongoDB
+        session_collection = client['geotech_db']['flask_sessions']
+        db_session = session_collection.find_one({'id': session_id})
+        
+        if db_session:
+            import pickle
+            session_data = pickle.loads(db_session['val'])
+            state_keys = [k for k in session_data.keys() if k.startswith('_state_')]
+            app.logger.info(f"✓ Session {session_id[:20]}... saved to MongoDB with state: {len(state_keys) > 0}")
+        else:
+            app.logger.error(f"❌ Session {session_id[:20]}... NOT in MongoDB after save_session()!")
+    else:
+        app.logger.error("❌ No Set-Cookie header found after save_session()!")
     
     app.logger.info("=== MICROSOFT LOGIN END ===")
     return response
