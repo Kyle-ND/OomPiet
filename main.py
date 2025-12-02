@@ -905,17 +905,19 @@ def proxy_rag():
         conversation_id = data.get('conversation_id')
 
         # Generate a new conversation id if not provided
+        # CRITICAL: Include collection_name to keep each mentor's conversations separate
         is_new = False
         if not conversation_id:
-            conversation_id = f"conv_{user_id}_{uuid.uuid4().hex[:8]}"
+            # Include collection_name in conversation ID to separate mentors
+            conversation_id = f"conv_{user_id}_{collection_name}_{uuid.uuid4().hex[:8]}"
             is_new = True
         else:
             # Validate conversation_id format and ownership
-            # If conversation_id doesn't belong to this user, regenerate it
-            expected_prefix = f"conv_{user_id}_"
+            # Must match: conv_{user_id}_{collection_name}_...
+            expected_prefix = f"conv_{user_id}_{collection_name}_"
             if not str(conversation_id).startswith(expected_prefix):
-                # Regenerate conversation_id for this user instead of rejecting
-                conversation_id = f"conv_{user_id}_{uuid.uuid4().hex[:8]}"
+                # Regenerate conversation_id for this user and collection
+                conversation_id = f"conv_{user_id}_{collection_name}_{uuid.uuid4().hex[:8]}"
                 is_new = True
 
         # Basic validation
