@@ -343,9 +343,12 @@ def login():
     app.logger.info("=== GOOGLE LOGIN START ===")
     app.logger.info(f"Request cookies before clear: {request.cookies}")
     
-    session.clear()
-
-    # Store redirect URL in session for callback
+    # Clear only user data, not the entire session (to prevent duplicate cookies)
+    session.pop('user', None)
+    session.pop('session_id', None)
+    session.pop('upload_access', None)
+    
+    # Set redirect URL for callback
     session['redirect_url'] = "https://mentormate-client.vercel.app/google-callback"
     session.modified = True
     
@@ -364,9 +367,12 @@ def login():
 @app.route('/login/microsoft')
 def microsoft_login():
     """Initiate Microsoft OAuth login"""
-    session.clear()
+    # Clear only user data, not the entire session (to prevent duplicate cookies)
+    session.pop('user', None)
+    session.pop('session_id', None)
+    session.pop('upload_access', None)
     
-    # Store redirect URL in session for callback
+    # Set redirect URL for callback
     session['redirect_url'] = "https://mentormate-client.vercel.app/microsoft-callback"
     session.modified = True
     
@@ -407,9 +413,18 @@ def logout():
     if user_email:
         #remove_user_session(user_email)
         AuthUtils.remove_user_session(user_email)
+    
+    # Clear all session data but keep the session cookie (don't call session.clear())
+    # This prevents duplicate cookie issues when re-logging in
+    session.pop('user', None)
+    session.pop('session_id', None)
     session.pop('upload_access', None)
-    session.pop('oauth_state', None)  # Clear OAuth state to prevent mismatch on re-login
-    session.clear()
+    session.pop('redirect_url', None)
+    # Clear any OAuth state keys (they start with '_state_')
+    oauth_keys = [k for k in session.keys() if k.startswith('_state_')]
+    for key in oauth_keys:
+        session.pop(key, None)
+    session.modified = True
     
     # Check if request expects JSON or redirect
     if request.method == 'POST' or request.headers.get('Content-Type') == 'application/json':
