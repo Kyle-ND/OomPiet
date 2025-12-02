@@ -114,12 +114,6 @@ feedback_collection = db["feedback"]
 sessions_collection = db["sessions"]
 password_reset_collection = db["password_reset_tokens"]
 collection = db["rag_queries"]
-oauth_states_collection = db["oauth_states"]
-
-# Register collections in app extensions for access in other modules
-if not hasattr(app, 'extensions'):
-    app.extensions = {}
-app.extensions['oauth_states_collection'] = oauth_states_collection
 
 # Initialize OAuth
 oauth = OAuth(app)
@@ -348,46 +342,26 @@ def reset_password():
 def login():
     session.clear()
 
-    # Redirect to frontend callback page after login
-    redirect_url = "https://mentormate-client.vercel.app/google-callback"
-
-    # Generate state and store in MongoDB (not session, since cookies may not work)
-    oauth_state = os.urandom(16).hex()
-    oauth_states_collection.insert_one({
-        "state": oauth_state,
-        "redirect_url": redirect_url,
-        "provider": "google",
-        "created_at": datetime.now(timezone.utc),
-        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
-    })
+    # Store redirect URL in session for callback
+    session['redirect_url'] = "https://mentormate-client.vercel.app/google-callback"
+    session.modified = True
     
     redirect_uri = url_for('google_callback', _external=True)
-    return google.authorize_redirect(
-        redirect_uri=redirect_uri,
-        state=oauth_state
-    )
+    # Let Authlib automatically generate and store state in session
+    return google.authorize_redirect(redirect_uri=redirect_uri)
 
 @app.route('/login/microsoft')
 def microsoft_login():
     """Initiate Microsoft OAuth login"""
     session.clear()
     
-    # Redirect to frontend callback page after login
-    redirect_url = "https://mentormate-client.vercel.app/microsoft-callback"
-
-    # Generate and store state in MongoDB (not session, since cookies may not work)
-    state = secrets.token_urlsafe(32)
-    oauth_states_collection.insert_one({
-        "state": state,
-        "redirect_url": redirect_url,
-        "provider": "microsoft",
-        "created_at": datetime.now(timezone.utc),
-        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
-    })
+    # Store redirect URL in session for callback
+    session['redirect_url'] = "https://mentormate-client.vercel.app/microsoft-callback"
+    session.modified = True
     
-    # Generate authorization URL
+    # Generate authorization URL - let Authlib handle state automatically
     redirect_uri = url_for('microsoft_callback', _external=True)
-    return microsoft.authorize_redirect(redirect_uri, state=state)
+    return microsoft.authorize_redirect(redirect_uri)
 
 @app.route('/microsoft/callback')
 def microsoft_callback():
