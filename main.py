@@ -410,30 +410,48 @@ def login():
     state_keys = [k for k in session.keys() if k.startswith('_state_')]
     app.logger.info(f"State keys in session: {state_keys}")
     
-    # CRITICAL FIX: Force synchronous MongoDB save BEFORE returning response
-    # This prevents race condition where callback arrives before session is saved
+    # CRITICAL FIX: Manually save session to MongoDB with proper write concern
+    # Flask-Session's save_session() doesn't guarantee immediate persistence
     session.modified = True
     try:
+        # Call save_session first (sets cookie in response)
         app.session_interface.save_session(app, session, response)
         
-        # Verify save succeeded
+        # FORCE immediate MongoDB write with acknowledgment
         cookie_header = response.headers.get('Set-Cookie', '')
         if 'google-login-session=' in cookie_header:
             cookie_value = cookie_header.split('google-login-session=')[1].split(';')[0]
             session_id = cookie_value.split('.')[0] if '.' in cookie_value else cookie_value
             
+            # Manually insert/update with write concern to FORCE persistence
             session_collection = client['geotech_db']['flask_sessions']
-            db_session = session_collection.find_one({'id': session_id})
+            import pickle
             
-            if db_session:
-                app.logger.info(f"✓ Session {session_id[:20]}... saved to MongoDB BEFORE response sent")
+            session_doc = {
+                'id': session_id,
+                'val': pickle.dumps(dict(session)),
+                'expiration': datetime.utcnow() + timedelta(minutes=60)
+            }
+            
+            # Use replace_one with upsert to ensure write completes
+            result = session_collection.replace_one(
+                {'id': session_id},
+                session_doc,
+                upsert=True
+            )
+            
+            # Verify write succeeded
+            if result.acknowledged:
+                app.logger.info(f"✓ Session {session_id[:20]}... FORCIBLY saved to MongoDB (matched={result.matched_count}, upserted={result.upserted_id is not None})")
             else:
-                app.logger.error(f"✗ Session {session_id[:20]}... NOT in MongoDB after save_session()!")
+                app.logger.error(f"✗ MongoDB write NOT acknowledged for session {session_id[:20]}...")
         else:
             app.logger.warning("No Set-Cookie header found after save_session()")
             
     except Exception as e:
         app.logger.error(f"Session save failed: {type(e).__name__}: {e}")
+        import traceback
+        app.logger.error(traceback.format_exc())
         # Don't crash - continue with redirect, recovery function will handle it
     
     app.logger.info("=== GOOGLE LOGIN END ===")
@@ -485,30 +503,48 @@ def microsoft_login():
     state_keys = [k for k in session.keys() if k.startswith('_state_')]
     app.logger.info(f"State keys in session: {state_keys}")
     
-    # CRITICAL FIX: Force synchronous MongoDB save BEFORE returning response
-    # This prevents race condition where callback arrives before session is saved
+    # CRITICAL FIX: Manually save session to MongoDB with proper write concern
+    # Flask-Session's save_session() doesn't guarantee immediate persistence
     session.modified = True
     try:
+        # Call save_session first (sets cookie in response)
         app.session_interface.save_session(app, session, response)
         
-        # Verify save succeeded
+        # FORCE immediate MongoDB write with acknowledgment
         cookie_header = response.headers.get('Set-Cookie', '')
         if 'google-login-session=' in cookie_header:
             cookie_value = cookie_header.split('google-login-session=')[1].split(';')[0]
             session_id = cookie_value.split('.')[0] if '.' in cookie_value else cookie_value
             
+            # Manually insert/update with write concern to FORCE persistence
             session_collection = client['geotech_db']['flask_sessions']
-            db_session = session_collection.find_one({'id': session_id})
+            import pickle
             
-            if db_session:
-                app.logger.info(f"✓ Session {session_id[:20]}... saved to MongoDB BEFORE response sent")
+            session_doc = {
+                'id': session_id,
+                'val': pickle.dumps(dict(session)),
+                'expiration': datetime.utcnow() + timedelta(minutes=60)
+            }
+            
+            # Use replace_one with upsert to ensure write completes
+            result = session_collection.replace_one(
+                {'id': session_id},
+                session_doc,
+                upsert=True
+            )
+            
+            # Verify write succeeded
+            if result.acknowledged:
+                app.logger.info(f"✓ Session {session_id[:20]}... FORCIBLY saved to MongoDB (matched={result.matched_count}, upserted={result.upserted_id is not None})")
             else:
-                app.logger.error(f"✗ Session {session_id[:20]}... NOT in MongoDB after save_session()!")
+                app.logger.error(f"✗ MongoDB write NOT acknowledged for session {session_id[:20]}...")
         else:
             app.logger.warning("No Set-Cookie header found after save_session()")
             
     except Exception as e:
         app.logger.error(f"Session save failed: {type(e).__name__}: {e}")
+        import traceback
+        app.logger.error(traceback.format_exc())
         # Don't crash - continue with redirect, recovery function will handle it
     
     app.logger.info("=== MICROSOFT LOGIN END ===")
