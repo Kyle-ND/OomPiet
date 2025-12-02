@@ -270,39 +270,65 @@ def check_session():
     app.logger.info(f"Session interface type: {type(app.session_interface).__name__}")
     app.logger.info(f"Request cookies: {dict(request.cookies)}")
     app.logger.info(f"Session cookie name: {app.config['SESSION_COOKIE_NAME']}")
-    app.logger.info(f"Session cookie value: {request.cookies.get(app.config['SESSION_COOKIE_NAME'], 'NOT FOUND')}")
+    
+    # CRITICAL FIX: Handle multiple cookies with same name
+    # Browser may send multiple 'google-login-session' cookies
+    # We need to try ALL of them, not just the first one Flask loads
+    cookie_header = request.headers.get('Cookie', '')
+    cookie_name = app.config['SESSION_COOKIE_NAME']
+    
+    # Extract all cookies with our session name
+    import re
+    pattern = rf'{cookie_name}=([^;]+)'
+    all_session_cookies = re.findall(pattern, cookie_header)
+    
+    app.logger.info(f"Found {len(all_session_cookies)} session cookies")
+    for idx, cookie_val in enumerate(all_session_cookies):
+        app.logger.info(f"  Cookie {idx+1}: {cookie_val[:30]}...")
+    
     app.logger.info(f"Session object contents: {dict(session)}")
     app.logger.info(f"Session.permanent: {session.permanent}")
     app.logger.info(f"'user' in session: {'user' in session}")
     
-    # Check MongoDB session collection
-    if app.config.get('SESSION_TYPE') == 'mongodb':
-        try:
-            session_collection = client['geotech_db']['flask_sessions']
-            session_count = session_collection.count_documents({})
-            app.logger.info(f"MongoDB sessions collection: {session_count} documents")
-            
-            # Check session document structure
-            sample_session = session_collection.find_one()
-            if sample_session:
-                app.logger.info(f"Sample session _id type: {type(sample_session.get('_id'))}")
-                app.logger.info(f"Sample session _id value: {sample_session.get('_id')}")
-                app.logger.info(f"Sample session keys: {list(sample_session.keys())}")
-            
-            # Try to find session by cookie value in 'id' field (not '_id')
-            cookie_val = request.cookies.get(app.config['SESSION_COOKIE_NAME'], '').split('.')[0]
-            app.logger.info(f"Looking for session with _id: {cookie_val}")
-            found_session = session_collection.find_one({"id": cookie_val})
-            app.logger.info(f"Session found by id lookup: {found_session is not None}")
-            
-        except Exception as e:
-            app.logger.error(f"Error checking MongoDB sessions: {e}")
-    
     is_authenticated = 'user' in session
+    user_data = session.get('user', None)
+    
+    # CRITICAL FIX: If current session is empty, try other cookies
+    if not is_authenticated and len(all_session_cookies) > 1:
+        app.logger.info("Session empty, trying other cookies...")
+        
+        if app.config.get('SESSION_TYPE') == 'mongodb':
+            try:
+                session_collection = client['geotech_db']['flask_sessions']
+                
+                # Try each cookie to find one with user data
+                for idx, cookie_value in enumerate(all_session_cookies):
+                    session_id = cookie_value.split('.')[0]
+                    app.logger.info(f"Trying cookie {idx+1} with ID: {session_id[:20]}...")
+                    
+                    # Look up in MongoDB
+                    found_session = session_collection.find_one({"id": session_id})
+                    
+                    if found_session and found_session.get('val'):
+                        # Deserialize session data
+                        import pickle
+                        session_data = pickle.loads(found_session['val'])
+                        app.logger.info(f"  Found session data: {list(session_data.keys())}")
+                        
+                        if 'user' in session_data:
+                            app.logger.info(f"  ✓ Session {idx+1} has user data!")
+                            is_authenticated = True
+                            user_data = session_data['user']
+                            break
+                    else:
+                        app.logger.info(f"  ✗ Session {idx+1} not found or empty")
+                        
+            except Exception as e:
+                app.logger.error(f"Error checking alternate cookies: {e}")
     
     response_data = {
         'authenticated': is_authenticated,
-        'user': session.get('user', None) if is_authenticated else None
+        'user': user_data
     }
     
     app.logger.info(f"Returning: {response_data}")
@@ -342,27 +368,40 @@ def reset_password():
 def login():
     app.logger.info("=== GOOGLE LOGIN START ===")
     app.logger.info(f"Request cookies: {list(request.cookies.keys())}")
-    app.logger.info(f"Session before: {dict(session)}")
+    app.logger.info(f"Session before clear: {dict(session)}")
     
-    # Clear any existing user/session data (but keep session ID if it exists)
-    # This allows re-login without creating duplicate cookies
-    session.pop('user', None)
-    session.pop('session_id', None)
-    session.pop('upload_access', None)
-    session.pop('redirect_url', None)
+    # CRITICAL: Must regenerate session to avoid duplicate cookie issue
+    # Get the session interface to manually delete old session from MongoDB
+    from flask.sessions import SessionInterface
+    session_interface = app.session_interface
+    
+    # Get old session ID before clearing
+    old_sid = session.get('_id') or request.cookies.get(app.config['SESSION_COOKIE_NAME'], '').split('.')[0]
+    
+    # Clear the session completely (this will generate a new session ID)
+    session.clear()
+    
+    # If there was an old session, delete it from MongoDB
+    if old_sid:
+        try:
+            session_collection = client['geotech_db']['flask_sessions']
+            result = session_collection.delete_one({"id": old_sid})
+            app.logger.info(f"Deleted old session from MongoDB: {old_sid}, deleted: {result.deleted_count}")
+        except Exception as e:
+            app.logger.warning(f"Could not delete old session: {e}")
     
     # Set redirect URL for callback
     session['redirect_url'] = "https://mentormate-client.vercel.app/google-callback"
     session.modified = True
     
-    app.logger.info(f"Session after cleanup: {dict(session)}")
+    app.logger.info(f"Session after clear: {dict(session)}")
     
     redirect_uri = url_for('google_callback', _external=True)
     # Let Authlib automatically generate and store state in session
     response = google.authorize_redirect(redirect_uri=redirect_uri)
     
     app.logger.info(f"Session after authorize_redirect: {dict(session)}")
-    app.logger.info(f"Response headers: {response.headers}")
+    app.logger.info(f"New session ID: {session.get('_id') or 'pending'}")
     app.logger.info("=== GOOGLE LOGIN END ===")
     
     return response
@@ -372,25 +411,36 @@ def microsoft_login():
     """Initiate Microsoft OAuth login"""
     app.logger.info("=== MICROSOFT LOGIN START ===")
     app.logger.info(f"Request cookies: {list(request.cookies.keys())}")
-    app.logger.info(f"Session before: {dict(session)}")
+    app.logger.info(f"Session before clear: {dict(session)}")
     
-    # Clear any existing user/session data
-    session.pop('user', None)
-    session.pop('session_id', None)
-    session.pop('upload_access', None)
-    session.pop('redirect_url', None)
+    # CRITICAL: Must regenerate session to avoid duplicate cookie issue
+    # Get old session ID before clearing
+    old_sid = session.get('_id') or request.cookies.get(app.config['SESSION_COOKIE_NAME'], '').split('.')[0]
+    
+    # Clear the session completely (this will generate a new session ID)
+    session.clear()
+    
+    # If there was an old session, delete it from MongoDB
+    if old_sid:
+        try:
+            session_collection = client['geotech_db']['flask_sessions']
+            result = session_collection.delete_one({"id": old_sid})
+            app.logger.info(f"Deleted old session from MongoDB: {old_sid}, deleted: {result.deleted_count}")
+        except Exception as e:
+            app.logger.warning(f"Could not delete old session: {e}")
     
     # Set redirect URL for callback
     session['redirect_url'] = "https://mentormate-client.vercel.app/microsoft-callback"
     session.modified = True
     
-    app.logger.info(f"Session after cleanup: {dict(session)}")
+    app.logger.info(f"Session after clear: {dict(session)}")
     
     # Generate authorization URL - let Authlib handle state automatically
     redirect_uri = url_for('microsoft_callback', _external=True)
     response = microsoft.authorize_redirect(redirect_uri)
     
     app.logger.info(f"Session after authorize_redirect: {dict(session)}")
+    app.logger.info(f"New session ID: {session.get('_id') or 'pending'}")
     app.logger.info("=== MICROSOFT LOGIN END ===")
     return response
 
