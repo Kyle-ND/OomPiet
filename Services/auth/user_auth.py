@@ -409,12 +409,61 @@ def handle_reset_password(users_collection):
     
 
 def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_dashboard_stats):
+    current_app.logger.info("=== MICROSOFT CALLBACK START ===")
+    current_app.logger.info(f"Request cookies: {request.cookies}")
+    current_app.logger.info(f"Session contents: {dict(session)}")
+    
+    state_in_url = request.args.get('state')
+    current_app.logger.info(f"State in URL: {state_in_url}")
+    
+    # CRITICAL FIX: If session is empty but we have state in URL, try other cookies
+    state_key = f'_state_microsoft_{state_in_url}' if state_in_url else None
+    
+    if state_key and state_key not in session:
+        current_app.logger.warning(f"State {state_key} not in current session, trying other cookies...")
+        
+        # Parse all session cookies from Cookie header
+        cookie_header = request.headers.get('Cookie', '')
+        import re
+        all_cookies = re.findall(r'google-login-session=([^;]+)', cookie_header)
+        current_app.logger.info(f"Found {len(all_cookies)} cookies to try")
+        
+        # Try each cookie to find the one with the correct state
+        if len(all_cookies) > 1:
+            from pymongo import MongoClient
+            import pickle
+            
+            mongo_client = current_app.config['SESSION_MONGODB']
+            session_collection = mongo_client['geotech_db']['flask_sessions']
+            
+            for idx, cookie_value in enumerate(all_cookies):
+                cookie_id = cookie_value.split('.')[0]
+                current_app.logger.info(f"Trying cookie {idx+1}: {cookie_id[:20]}...")
+                
+                found_session = session_collection.find_one({"id": cookie_id})
+                if found_session and found_session.get('val'):
+                    try:
+                        session_data = pickle.loads(found_session['val'])
+                        if state_key in session_data:
+                            current_app.logger.info(f"✓ Found state in cookie {idx+1}! Loading this session...")
+                            # Manually load this session data into current session
+                            for key, value in session_data.items():
+                                session[key] = value
+                            session.modified = True
+                            break
+                    except Exception as e:
+                        current_app.logger.warning(f"Failed to deserialize session {idx+1}: {e}")
+    
+    current_app.logger.info(f"Final session state keys: {[k for k in session.keys() if k.startswith('_state_')]}")
+    
     # Get redirect URL from session
     redirect_url = session.get('redirect_url', "https://mentormate-client.vercel.app/microsoft-callback")
     
     try:
         # Authlib automatically verifies state from session
+        current_app.logger.info("Calling authorize_access_token()...")
         token = microsoft.authorize_access_token()
+        current_app.logger.info(f"Token received: {token is not None}")
         if not token:
             raise ValueError("Failed to get access token")
 
@@ -632,7 +681,49 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
     current_app.logger.info("=== GOOGLE CALLBACK START ===")
     current_app.logger.info(f"Request cookies: {request.cookies}")
     current_app.logger.info(f"Session contents: {dict(session)}")
-    current_app.logger.info(f"State in URL: {request.args.get('state')}")
+    
+    state_in_url = request.args.get('state')
+    current_app.logger.info(f"State in URL: {state_in_url}")
+    
+    # CRITICAL FIX: If session is empty but we have state in URL, try other cookies
+    state_key = f'_state_google_{state_in_url}' if state_in_url else None
+    
+    if state_key and state_key not in session:
+        current_app.logger.warning(f"State {state_key} not in current session, trying other cookies...")
+        
+        # Parse all session cookies from Cookie header
+        cookie_header = request.headers.get('Cookie', '')
+        import re
+        all_cookies = re.findall(r'google-login-session=([^;]+)', cookie_header)
+        current_app.logger.info(f"Found {len(all_cookies)} cookies to try")
+        
+        # Try each cookie to find the one with the correct state
+        if len(all_cookies) > 1:
+            from pymongo import MongoClient
+            import pickle
+            
+            mongo_client = current_app.config['SESSION_MONGODB']
+            session_collection = mongo_client['geotech_db']['flask_sessions']
+            
+            for idx, cookie_value in enumerate(all_cookies):
+                cookie_id = cookie_value.split('.')[0]
+                current_app.logger.info(f"Trying cookie {idx+1}: {cookie_id[:20]}...")
+                
+                found_session = session_collection.find_one({"id": cookie_id})
+                if found_session and found_session.get('val'):
+                    try:
+                        session_data = pickle.loads(found_session['val'])
+                        if state_key in session_data:
+                            current_app.logger.info(f"✓ Found state in cookie {idx+1}! Loading this session...")
+                            # Manually load this session data into current session
+                            for key, value in session_data.items():
+                                session[key] = value
+                            session.modified = True
+                            break
+                    except Exception as e:
+                        current_app.logger.warning(f"Failed to deserialize session {idx+1}: {e}")
+    
+    current_app.logger.info(f"Final session state keys: {[k for k in session.keys() if k.startswith('_state_')]}")
     
     # Get redirect URL from session
     redirect_url = session.get('redirect_url', 'https://mentormate-client.vercel.app/google-callback')
