@@ -377,12 +377,19 @@ def login():
     
     app.logger.info(f"Old session ID from cookie: {old_sid[:20] + '...' if old_sid else 'None'}")
     
-    # Delete old session from MongoDB BEFORE clearing (to avoid losing reference)
+    # Delete ALL old sessions from MongoDB to prevent accumulation
     if old_sid:
         try:
             session_collection = client['geotech_db']['flask_sessions']
-            result = session_collection.delete_one({"id": old_sid})
-            app.logger.info(f"Deleted old session from MongoDB: deleted_count={result.deleted_count}")
+            
+            # Check if session exists first
+            existing = session_collection.find_one({"id": old_sid})
+            if existing:
+                app.logger.info(f"Found old session in MongoDB, deleting...")
+                result = session_collection.delete_one({"id": old_sid})
+                app.logger.info(f"Deleted old session: deleted_count={result.deleted_count}")
+            else:
+                app.logger.warning(f"Old session {old_sid[:20]}... not found in MongoDB (already expired/deleted)")
         except Exception as e:
             app.logger.warning(f"Could not delete old session: {e}")
     
@@ -403,7 +410,16 @@ def login():
     app.logger.info(f"Session after authorize_redirect: {dict(session)}")
     state_keys = [k for k in session.keys() if k.startswith('_state_')]
     app.logger.info(f"State keys in session: {state_keys}")
-    app.logger.info(f"Session will be saved to MongoDB with state: {len(state_keys) > 0}")
+    
+    # FORCE save session to MongoDB before returning redirect
+    # Flask-Session should do this automatically, but we'll verify
+    try:
+        # Manually trigger session save through the session interface
+        app.session_interface.save_session(app, session, response)
+        app.logger.info("✓ Manually saved session to MongoDB")
+    except Exception as e:
+        app.logger.error(f"✗ Failed to save session: {e}")
+    
     app.logger.info("=== GOOGLE LOGIN END ===")
     
     return response
@@ -422,12 +438,19 @@ def microsoft_login():
     
     app.logger.info(f"Old session ID from cookie: {old_sid[:20] + '...' if old_sid else 'None'}")
     
-    # Delete old session from MongoDB BEFORE clearing (to avoid losing reference)
+    # Delete ALL old sessions from MongoDB to prevent accumulation
     if old_sid:
         try:
             session_collection = client['geotech_db']['flask_sessions']
-            result = session_collection.delete_one({"id": old_sid})
-            app.logger.info(f"Deleted old session from MongoDB: deleted_count={result.deleted_count}")
+            
+            # Check if session exists first
+            existing = session_collection.find_one({"id": old_sid})
+            if existing:
+                app.logger.info(f"Found old session in MongoDB, deleting...")
+                result = session_collection.delete_one({"id": old_sid})
+                app.logger.info(f"Deleted old session: deleted_count={result.deleted_count}")
+            else:
+                app.logger.warning(f"Old session {old_sid[:20]}... not found in MongoDB (already expired/deleted)")
         except Exception as e:
             app.logger.warning(f"Could not delete old session: {e}")
     
@@ -449,7 +472,16 @@ def microsoft_login():
     app.logger.info(f"Session after authorize_redirect: {dict(session)}")
     state_keys = [k for k in session.keys() if k.startswith('_state_')]
     app.logger.info(f"State keys in session: {state_keys}")
-    app.logger.info(f"Session will be saved to MongoDB with state: {len(state_keys) > 0}")
+    
+    # FORCE save session to MongoDB before returning redirect
+    # Flask-Session should do this automatically, but we'll verify
+    try:
+        # Manually trigger session save through the session interface
+        app.session_interface.save_session(app, session, response)
+        app.logger.info("✓ Manually saved session to MongoDB")
+    except Exception as e:
+        app.logger.error(f"✗ Failed to save session: {e}")
+    
     app.logger.info("=== MICROSOFT LOGIN END ===")
     return response
 
