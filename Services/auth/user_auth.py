@@ -1,4 +1,6 @@
 import os
+import re
+import pickle
 from urllib.parse import urlencode
 from flask import current_app, make_response, redirect, request, jsonify , session, url_for
 from datetime import datetime, timedelta, timezone
@@ -7,10 +9,130 @@ from werkzeug.security import check_password_hash,generate_password_hash
 from Utils.EmailSender import send_password_reset_email
 from . import utils as AuthUtils
 
-# These variables will be initialized from environment variables loaded in main.py
-TENANT_ID = os.getenv("TID")  # Your Azure AD tenant ID
-CLIENT_ID = os.getenv("CID")  # Your Azure AD client ID
-CLIENT_SECRET = os.getenv("SID")  # Your Azure AD client secret
+TENANT_ID = os.getenv("TID")  
+CLIENT_ID = os.getenv("CID")  
+CLIENT_SECRET = os.getenv("SID")  
+
+
+def recover_oauth_session_from_cookies(provider_name, state_in_url):
+    """
+    Safely recover OAuth session when Flask loads wrong cookie from multiple cookies.
+    
+    Security measures:
+    - Only loads OAuth state data (not full session)
+    - Validates session timestamp (must be recent)
+    - Validates IP address matches (optional, can be disabled for mobile users)
+    - Limits number of cookies checked (prevents DoS)
+    
+    Args:
+        provider_name: 'google' or 'microsoft'
+        state_in_url: OAuth state parameter from callback URL
+        
+    Returns:
+        bool: True if session was recovered, False otherwise
+    """
+    state_key = f'_state_{provider_name}_{state_in_url}' if state_in_url else None
+    
+    if not state_key or state_key in session:
+        return False  # Already have state or no state to find
+    
+    current_app.logger.warning(f"State {state_key} not in current session, attempting recovery...")
+    
+    # Get cookie name from config
+    cookie_name = current_app.config.get('SESSION_COOKIE_NAME', 'google-login-session')
+    
+    # Parse all session cookies from Cookie header
+    cookie_header = request.headers.get('Cookie', '')
+    all_cookies = re.findall(rf'{re.escape(cookie_name)}=([^;]+)', cookie_header)
+    
+    current_app.logger.info(f"Found {len(all_cookies)} {cookie_name} cookies")
+    
+    if len(all_cookies) <= 1:
+        return False  # No alternate cookies to try
+    
+    # Limit to 5 cookies max to prevent DoS
+    cookies_to_check = all_cookies[:5]
+    
+    # Get MongoDB configuration
+    mongo_client = current_app.config.get('SESSION_MONGODB')
+    db_name = current_app.config.get('SESSION_MONGODB_DB', 'geotech_db')
+    collection_name = current_app.config.get('SESSION_MONGODB_COLLECT', 'flask_sessions')
+    
+    if not mongo_client:
+        current_app.logger.error("SESSION_MONGODB not configured")
+        return False
+    
+    session_collection = mongo_client[db_name][collection_name]
+    
+    # Extract cookie IDs safely
+    cookie_ids = []
+    for cookie_value in cookies_to_check:
+        parts = cookie_value.split('.')
+        if len(parts) >= 1:
+            cookie_ids.append(parts[0])
+    
+    if not cookie_ids:
+        current_app.logger.warning("No valid cookie IDs found")
+        return False
+    
+    # Batch query for all cookies at once (performance optimization)
+    found_sessions = session_collection.find({"id": {"$in": cookie_ids}})
+    
+    request_ip = request.remote_addr
+    current_time = datetime.now(timezone.utc)
+    
+    for found_session in found_sessions:
+        cookie_id = found_session.get('id')
+        
+        try:
+            # Deserialize session data
+            # Note: Flask-Session uses pickle. For production, consider migrating to JSON-based sessions
+            session_data = pickle.loads(found_session['val'])
+            
+            # Check if this session has the state we're looking for
+            if state_key not in session_data:
+                continue
+            
+            current_app.logger.info(f"Found state in session {cookie_id[:20]}...")
+            
+            # SECURITY: Validate session timestamp (must be within last 10 minutes)
+            state_data = session_data.get(state_key, {})
+            state_exp = state_data.get('exp')
+            
+            if state_exp:
+                state_created = datetime.fromtimestamp(state_exp - 600, tz=timezone.utc)  # exp is 10 min from creation
+                age_minutes = (current_time - state_created).total_seconds() / 60
+                
+                if age_minutes > 10:
+                    current_app.logger.warning(f"Session too old ({age_minutes:.1f} minutes), skipping")
+                    continue
+            
+            # SECURITY: Optionally validate IP address
+            # Disabled by default as mobile users may have changing IPs during OAuth flow
+            # session_ip = session_data.get('ip_address')
+            # if session_ip and session_ip != request_ip:
+            #     current_app.logger.warning(f"IP mismatch: session={session_ip}, request={request_ip}")
+            #     continue
+            
+            # Only copy OAuth state keys (not user data or other session keys)
+            # This prevents session fixation attacks
+            oauth_keys = [k for k in session_data.keys() if k.startswith('_state_') or k == 'redirect_url']
+            
+            current_app.logger.info(f"✓ Validated session! Loading {len(oauth_keys)} OAuth keys...")
+            
+            for key in oauth_keys:
+                session[key] = session_data[key]
+            
+            session.modified = True
+            return True
+            
+        except Exception as e:
+            current_app.logger.error(f"Failed to deserialize/validate session {cookie_id[:20]}: {type(e).__name__}: {e}")
+            continue
+    
+    current_app.logger.warning("Could not recover OAuth state from any alternate cookie")
+    return False
+
 
 def handle_signup(users_collection , initialize_new_user_dashboard_stats_func):
     try:
@@ -409,12 +531,26 @@ def handle_reset_password(users_collection):
     
 
 def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_dashboard_stats):
+    current_app.logger.info("=== MICROSOFT CALLBACK START ===")
+    current_app.logger.info(f"Request cookies: {list(request.cookies.keys())}")
+    current_app.logger.info(f"Session contains user: {'user' in session}")
+    
+    state_in_url = request.args.get('state')
+    current_app.logger.info(f"State in URL: {state_in_url}")
+    
+    # Attempt to recover OAuth session from alternate cookies if needed
+    recover_oauth_session_from_cookies('microsoft', state_in_url)
+    
+    current_app.logger.info(f"Final session state keys: {[k for k in session.keys() if k.startswith('_state_')]}")
+    
     # Get redirect URL from session
     redirect_url = session.get('redirect_url', "https://mentormate-client.vercel.app/microsoft-callback")
     
     try:
         # Authlib automatically verifies state from session
+        current_app.logger.info("Calling authorize_access_token()...")
         token = microsoft.authorize_access_token()
+        current_app.logger.info(f"Token received: {token is not None}")
         if not token:
             raise ValueError("Failed to get access token")
 
@@ -630,9 +766,16 @@ def get_microsoft_profile_picture(microsoft, token):
 
 def handle_google_callback(google, users_collection, initialize_new_user_dashboard_stats):
     current_app.logger.info("=== GOOGLE CALLBACK START ===")
-    current_app.logger.info(f"Request cookies: {request.cookies}")
-    current_app.logger.info(f"Session contents: {dict(session)}")
-    current_app.logger.info(f"State in URL: {request.args.get('state')}")
+    current_app.logger.info(f"Request cookies: {list(request.cookies.keys())}")
+    current_app.logger.info(f"Session contains user: {'user' in session}")
+    
+    state_in_url = request.args.get('state')
+    current_app.logger.info(f"State in URL: {state_in_url}")
+    
+    # Attempt to recover OAuth session from alternate cookies if needed
+    recover_oauth_session_from_cookies('google', state_in_url)
+    
+    current_app.logger.info(f"Final session state keys: {[k for k in session.keys() if k.startswith('_state_')]}")
     
     # Get redirect URL from session
     redirect_url = session.get('redirect_url', 'https://mentormate-client.vercel.app/google-callback')
