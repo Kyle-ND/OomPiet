@@ -293,30 +293,45 @@ def reset_password():
 @app.route('/login/google')  # Add explicit Google login route
 # @limiter.limit("5 per minute")
 def login():
-    session.clear()
+    # Don't clear session here - it will wipe the state before callback
+    # Remove old user data but keep session infrastructure
+    session.pop('user', None)
+    session.pop('session_id', None)
 
-    # Redirect to frontend callback page after login
+    # Set permanent session
+    session.permanent = True
+    
+    # Generate and store OAuth state for CSRF protection
+    oauth_state = os.urandom(16).hex()
+    session['oauth_state'] = oauth_state
     session['redirect_url'] = "http://localhost:3000/google-callback"
-
-    session['oauth_state'] = os.urandom(16).hex()
+    
+    # Force session to be saved immediately
     session.modified = True
+    
     redirect_uri = url_for('google_callback', _external=True)
     return google.authorize_redirect(
         redirect_uri=redirect_uri,
-        state=session['oauth_state']
+        state=oauth_state
     )
 
 @app.route('/login/microsoft')
 def microsoft_login():
     """Initiate Microsoft OAuth login"""
-    session.clear()
+    # Don't clear session here - it will wipe the state before callback
+    session.pop('user', None)
+    session.pop('session_id', None)
     
-    # Redirect to frontend callback page after login
-    session['redirect_url'] = "http://localhost:3000/microsoft-callback"
-
+    # Set permanent session
+    session.permanent = True
+    
     # Generate and store state for CSRF protection
     state = secrets.token_urlsafe(32)
     session['oauth_state'] = state
+    session['redirect_url'] = "http://localhost:3000/microsoft-callback"
+    
+    # Force session to be saved immediately
+    session.modified = True
     
     # Generate authorization URL
     redirect_uri = url_for('microsoft_callback', _external=True)
