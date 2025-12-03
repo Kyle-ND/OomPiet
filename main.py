@@ -903,6 +903,8 @@ def proxy_rag():
         auth_user = session.get('user', {})
         user_id = auth_user.get('id') or auth_user.get('email') or 'unknown'
         conversation_id = data.get('conversation_id')
+        
+        app.logger.info(f"=== RAG REQUEST: user={user_id}, collection={collection_name}, incoming_conv_id={conversation_id}")
 
         # Generate a new conversation id if not provided
         # CRITICAL: Include collection_name to keep each mentor's conversations separate
@@ -912,13 +914,34 @@ def proxy_rag():
             conversation_id = f"conv_{user_id}_{collection_name}_{uuid.uuid4().hex[:8]}"
             is_new = True
         else:
-            # Validate conversation_id format and ownership
-            # Must match: conv_{user_id}_{collection_name}_...
-            expected_prefix = f"conv_{user_id}_{collection_name}_"
-            if not str(conversation_id).startswith(expected_prefix):
-                # Regenerate conversation_id for this user and collection
+            # Validate conversation_id ownership and collection match
+            # Accept conversation IDs that belong to this user and collection
+            expected_user_prefix = f"conv_{user_id}_"
+            
+            if not str(conversation_id).startswith(expected_user_prefix):
+                # Security: Reject conversations from other users
+                app.logger.warning(f"Rejected conversation_id {conversation_id} - doesn't belong to user {user_id}")
                 conversation_id = f"conv_{user_id}_{collection_name}_{uuid.uuid4().hex[:8]}"
                 is_new = True
+            else:
+                # Verify the collection_name matches (to prevent cross-mentor conversation leaks)
+                # Extract collection from conversation ID: conv_{user}_{collection}_{random}
+                parts = conversation_id.split('_', 3)  # Split into max 4 parts
+                if len(parts) >= 3:
+                    conv_collection = parts[2]
+                    if conv_collection != collection_name:
+                        # User is trying to continue a conversation from a different mentor
+                        app.logger.warning(f"Collection mismatch: conversation has {conv_collection}, request has {collection_name}")
+                        conversation_id = f"conv_{user_id}_{collection_name}_{uuid.uuid4().hex[:8]}"
+                        is_new = True
+                else:
+                    # Old format conversation ID (before collection was added)
+                    # Create new conversation with proper format
+                    app.logger.info(f"Old format conversation_id detected, creating new one")
+                    conversation_id = f"conv_{user_id}_{collection_name}_{uuid.uuid4().hex[:8]}"
+                    is_new = True
+        
+        app.logger.info(f"=== FINAL: conversation_id={conversation_id}, is_new={is_new}")
 
         # Basic validation
         if not query_text:
