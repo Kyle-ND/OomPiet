@@ -96,15 +96,7 @@ app.config['SESSION_COOKIE_PARTITIONED'] = True  # Allow cross-site cookies in m
 # Initialize Flask-Session (server-side sessions)
 Session(app)
 
-# Log session configuration for debugging
 app.logger.setLevel(logging.INFO)
-app.logger.info("=== SESSION CONFIGURATION ===")
-app.logger.info(f"SESSION_TYPE: {app.config.get('SESSION_TYPE')}")
-app.logger.info(f"SESSION_MONGODB configured: {app.config.get('SESSION_MONGODB') is not None}")
-app.logger.info(f"SESSION_MONGODB_DB: {app.config.get('SESSION_MONGODB_DB')}")
-app.logger.info(f"SESSION_MONGODB_COLLECT: {app.config.get('SESSION_MONGODB_COLLECT')}")
-app.logger.info(f"Session interface class: {type(app.session_interface).__name__}")
-app.logger.info("=== END SESSION CONFIGURATION ===")
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 db = client["geotech_db"]
@@ -266,11 +258,6 @@ def signup():
 @app.route('/api/check-session', methods=['GET'])
 def check_session():
     """Check if user has active session"""
-    app.logger.info("=== CHECK SESSION START ===")
-    app.logger.info(f"Session interface type: {type(app.session_interface).__name__}")
-    app.logger.info(f"Request cookies: {dict(request.cookies)}")
-    app.logger.info(f"Session cookie name: {app.config['SESSION_COOKIE_NAME']}")
-    
     # CRITICAL FIX: Handle multiple cookies with same name
     # Browser may send multiple 'google-login-session' cookies
     # We need to try ALL of them, not just the first one Flask loads
@@ -282,21 +269,11 @@ def check_session():
     pattern = rf'{cookie_name}=([^;]+)'
     all_session_cookies = re.findall(pattern, cookie_header)
     
-    app.logger.info(f"Found {len(all_session_cookies)} session cookies")
-    for idx, cookie_val in enumerate(all_session_cookies):
-        app.logger.info(f"  Cookie {idx+1}: {cookie_val[:30]}...")
-    
-    app.logger.info(f"Session object contents: {dict(session)}")
-    app.logger.info(f"Session.permanent: {session.permanent}")
-    app.logger.info(f"'user' in session: {'user' in session}")
-    
     is_authenticated = 'user' in session
     user_data = session.get('user', None)
     
     # CRITICAL FIX: If current session is empty, try other cookies
     if not is_authenticated and len(all_session_cookies) > 1:
-        app.logger.info("Session empty, trying other cookies...")
-        
         if app.config.get('SESSION_TYPE') == 'mongodb':
             try:
                 session_collection = client['geotech_db']['flask_sessions']
@@ -304,7 +281,6 @@ def check_session():
                 # Try each cookie to find one with user data
                 for idx, cookie_value in enumerate(all_session_cookies):
                     session_id = cookie_value.split('.')[0]
-                    app.logger.info(f"Trying cookie {idx+1} with ID: {session_id[:20]}...")
                     
                     # Look up in MongoDB
                     found_session = session_collection.find_one({"id": session_id})
@@ -313,15 +289,11 @@ def check_session():
                         # Deserialize session data
                         import pickle
                         session_data = pickle.loads(found_session['val'])
-                        app.logger.info(f"  Found session data: {list(session_data.keys())}")
                         
                         if 'user' in session_data:
-                            app.logger.info(f"  ✓ Session {idx+1} has user data!")
                             is_authenticated = True
                             user_data = session_data['user']
                             break
-                    else:
-                        app.logger.info(f"  ✗ Session {idx+1} not found or empty")
                         
             except Exception as e:
                 app.logger.error(f"Error checking alternate cookies: {e}")
@@ -330,9 +302,6 @@ def check_session():
         'authenticated': is_authenticated,
         'user': user_data
     }
-    
-    app.logger.info(f"Returning: {response_data}")
-    app.logger.info("=== CHECK SESSION END ===")
     
     return jsonify(response_data), 200
 
@@ -366,30 +335,18 @@ def reset_password():
 @app.route('/login/google')  # Add explicit Google login route
 # @limiter.limit("5 per minute")
 def login():
-    app.logger.info("=== GOOGLE LOGIN START ===")
-    app.logger.info(f"Request cookies: {list(request.cookies.keys())}")
-    app.logger.info(f"Session before clear: {dict(session)}")
-    
     # CRITICAL: Must regenerate session to avoid duplicate cookie issue
     # Get old session ID BEFORE clearing (clearing generates new ID)
     old_cookie = request.cookies.get(app.config['SESSION_COOKIE_NAME'], '')
     old_sid = old_cookie.split('.')[0] if old_cookie else None
     
-    app.logger.info(f"Old session ID from cookie: {old_sid[:20] + '...' if old_sid else 'None'}")
-    
     # Delete ALL old sessions from MongoDB to prevent accumulation
     if old_sid:
         try:
             session_collection = client['geotech_db']['flask_sessions']
-            
-            # Check if session exists first
             existing = session_collection.find_one({"id": old_sid})
             if existing:
-                app.logger.info(f"Found old session in MongoDB, deleting...")
-                result = session_collection.delete_one({"id": old_sid})
-                app.logger.info(f"Deleted old session: deleted_count={result.deleted_count}")
-            else:
-                app.logger.warning(f"Old session {old_sid[:20]}... not found in MongoDB (already expired/deleted)")
+                session_collection.delete_one({"id": old_sid})
         except Exception as e:
             app.logger.warning(f"Could not delete old session: {e}")
     
@@ -398,17 +355,10 @@ def login():
     # Set redirect URL for callback
     session['redirect_url'] = "https://mentormate-client.vercel.app/google-callback"
     
-    app.logger.info(f"Session after clear: {dict(session)}")
-    app.logger.info(f"BEFORE authorize_redirect - session.modified: {session.modified}")
-    
     redirect_uri = url_for('google_callback', _external=True)
     
     # Let Authlib automatically generate and store state in session
     response = google.authorize_redirect(redirect_uri=redirect_uri)
-    
-    app.logger.info(f"Session after authorize_redirect: {dict(session)}")
-    state_keys = [k for k in session.keys() if k.startswith('_state_')]
-    app.logger.info(f"State keys in session: {state_keys}")
     
     # CRITICAL FIX: Manually save session to MongoDB with proper write concern
     # Flask-Session's save_session() doesn't guarantee immediate persistence
@@ -441,12 +391,8 @@ def login():
             )
             
             # Verify write succeeded
-            if result.acknowledged:
-                app.logger.info(f"✓ Session {session_id[:20]}... FORCIBLY saved to MongoDB (matched={result.matched_count}, upserted={result.upserted_id is not None})")
-            else:
-                app.logger.error(f"✗ MongoDB write NOT acknowledged for session {session_id[:20]}...")
-        else:
-            app.logger.warning("No Set-Cookie header found after save_session()")
+            if not result.acknowledged:
+                app.logger.error(f"MongoDB write NOT acknowledged for session {session_id[:20]}...")
             
     except Exception as e:
         app.logger.error(f"Session save failed: {type(e).__name__}: {e}")
@@ -454,36 +400,23 @@ def login():
         app.logger.error(traceback.format_exc())
         # Don't crash - continue with redirect, recovery function will handle it
     
-    app.logger.info("=== GOOGLE LOGIN END ===")
     return response
 
 @app.route('/login/microsoft')
 def microsoft_login():
     """Initiate Microsoft OAuth login"""
-    app.logger.info("=== MICROSOFT LOGIN START ===")
-    app.logger.info(f"Request cookies: {list(request.cookies.keys())}")
-    app.logger.info(f"Session before clear: {dict(session)}")
-    
     # CRITICAL: Must regenerate session to avoid duplicate cookie issue
     # Get old session ID BEFORE clearing (clearing generates new ID)
     old_cookie = request.cookies.get(app.config['SESSION_COOKIE_NAME'], '')
     old_sid = old_cookie.split('.')[0] if old_cookie else None
     
-    app.logger.info(f"Old session ID from cookie: {old_sid[:20] + '...' if old_sid else 'None'}")
-    
     # Delete ALL old sessions from MongoDB to prevent accumulation
     if old_sid:
         try:
             session_collection = client['geotech_db']['flask_sessions']
-            
-            # Check if session exists first
             existing = session_collection.find_one({"id": old_sid})
             if existing:
-                app.logger.info(f"Found old session in MongoDB, deleting...")
-                result = session_collection.delete_one({"id": old_sid})
-                app.logger.info(f"Deleted old session: deleted_count={result.deleted_count}")
-            else:
-                app.logger.warning(f"Old session {old_sid[:20]}... not found in MongoDB (already expired/deleted)")
+                session_collection.delete_one({"id": old_sid})
         except Exception as e:
             app.logger.warning(f"Could not delete old session: {e}")
     
@@ -493,15 +426,9 @@ def microsoft_login():
     # Set redirect URL for callback
     session['redirect_url'] = "https://mentormate-client.vercel.app/microsoft-callback"
     
-    app.logger.info(f"Session after clear: {dict(session)}")
-    
     # Generate authorization URL - let Authlib handle state automatically
     redirect_uri = url_for('microsoft_callback', _external=True)
     response = microsoft.authorize_redirect(redirect_uri)
-    
-    app.logger.info(f"Session after authorize_redirect: {dict(session)}")
-    state_keys = [k for k in session.keys() if k.startswith('_state_')]
-    app.logger.info(f"State keys in session: {state_keys}")
     
     # CRITICAL FIX: Manually save session to MongoDB with proper write concern
     # Flask-Session's save_session() doesn't guarantee immediate persistence
@@ -534,12 +461,8 @@ def microsoft_login():
             )
             
             # Verify write succeeded
-            if result.acknowledged:
-                app.logger.info(f"✓ Session {session_id[:20]}... FORCIBLY saved to MongoDB (matched={result.matched_count}, upserted={result.upserted_id is not None})")
-            else:
-                app.logger.error(f"✗ MongoDB write NOT acknowledged for session {session_id[:20]}...")
-        else:
-            app.logger.warning("No Set-Cookie header found after save_session()")
+            if not result.acknowledged:
+                app.logger.error(f"MongoDB write NOT acknowledged for session {session_id[:20]}...")
             
     except Exception as e:
         app.logger.error(f"Session save failed: {type(e).__name__}: {e}")
@@ -547,7 +470,6 @@ def microsoft_login():
         app.logger.error(traceback.format_exc())
         # Don't crash - continue with redirect, recovery function will handle it
     
-    app.logger.info("=== MICROSOFT LOGIN END ===")
     return response
 
 @app.route('/microsoft/callback')
@@ -846,39 +768,25 @@ def delete_chat_history(user_id):
         conversation_id_param = request.args.get('conversation_id')
         collection_name_filter = request.args.get('collection_name')
         
-        app.logger.info(f"=== DELETE HISTORY REQUEST ===")
-        app.logger.info(f"user_id: {user_id}")
-        app.logger.info(f"conversation_id_param: {conversation_id_param}")
-        app.logger.info(f"collection_name_filter: {collection_name_filter}")
-        
         # Build delete query
         if conversation_id_param:
             # Delete specific session - verify it belongs to user
             expected_prefix = f"conv_{user_id}"
-            app.logger.info(f"Checking if {conversation_id_param} starts with {expected_prefix}")
             
             if not conversation_id_param.startswith(expected_prefix):
-                app.logger.warning(f"VALIDATION FAILED: conversation_id doesn't match user")
                 return jsonify({"error": "Conversation ID does not match user ID"}), 403
 
             query = {"conversation_id": conversation_id_param}
-            app.logger.info(f"Deleting specific conversation: {conversation_id_param}")
         else:
             # Delete all sessions for user (match any conversation starting with conv_<user_id>)
             query = {"conversation_id": {"$regex": f"^conv_{re.escape(user_id)}"}}
-            app.logger.info(f"Deleting ALL conversations for user: {user_id}")
         
         # Add collection filter if specified and valid
         if collection_name_filter and collection_name_filter in ALLOWED_QDRANT_COLLECTIONS:
             query["collection_name"] = collection_name_filter
-            app.logger.info(f"Added collection filter: {collection_name_filter}")
-        
-        app.logger.info(f"Final MongoDB delete query: {query}")
         
         # Execute deletion
         result = collection.delete_many(query)
-        
-        app.logger.info(f"Delete result: deleted_count={result.deleted_count}, acknowledged={result.acknowledged}")
         
         return jsonify({
             "status": "success",
@@ -918,8 +826,6 @@ def proxy_rag():
         auth_user = session.get('user', {})
         user_id = auth_user.get('id') or auth_user.get('email') or 'unknown'
         conversation_id = data.get('conversation_id')
-        
-        app.logger.info(f"=== RAG REQUEST: user={user_id}, collection={collection_name}, incoming_conv_id={conversation_id}")
 
         # Generate a new conversation id if not provided
         # CRITICAL: Include collection_name to keep each mentor's conversations separate
@@ -939,7 +845,7 @@ def proxy_rag():
                 conversation_id = f"conv_{user_id}_{collection_name}_{uuid.uuid4().hex[:8]}"
                 is_new = True
             else:
-                # Verify the collection_name matches (to prevent cross-mentor conversation leaks)
+                # CRITICAL FIX: Verify the collection_name matches to prevent cross-mentor conversation leaks
                 # Extract collection from conversation ID: conv_{user}_{collection}_{random}
                 parts = conversation_id.split('_', 3)  # Split into max 4 parts
                 if len(parts) >= 3:
@@ -948,22 +854,36 @@ def proxy_rag():
                     if conv_collection in ALLOWED_QDRANT_COLLECTIONS:
                         # NEW FORMAT: conv_{user}_{collection}_{random}
                         if conv_collection != collection_name:
-                            # User is trying to continue a conversation from a different mentor
-                            app.logger.warning(f"Collection mismatch: conversation has {conv_collection}, request has {collection_name}")
+                            # CRITICAL: User is trying to use a conversation from a different mentor
+                            # This causes cross-mentor memory leak - FORCE new conversation
+                            app.logger.warning(f"BLOCKED cross-mentor leak: conversation has {conv_collection}, request has {collection_name} - creating new conversation")
                             conversation_id = f"conv_{user_id}_{collection_name}_{uuid.uuid4().hex[:8]}"
                             is_new = True
                         # else: Valid conversation ID with matching collection - continue it!
                     else:
-                        # OLD FORMAT: conv_{user}_{random} - accept it and continue the conversation!
-                        app.logger.info(f"Old format conversation_id detected, continuing existing conversation")
-                        # Don't regenerate - let the user continue their old conversation
+                        # OLD FORMAT: conv_{user}_{random}
+                        # Check MongoDB to see which collection this conversation belongs to
+                        try:
+                            existing_msg = collection.find_one({"conversation_id": conversation_id})
+                            if existing_msg:
+                                existing_collection = existing_msg.get("collection_name")
+                                if existing_collection and existing_collection != collection_name:
+                                    # CRITICAL: Old format conversation from different mentor - FORCE new conversation
+                                    app.logger.warning(f"BLOCKED cross-mentor leak: old format conversation has {existing_collection}, request has {collection_name} - creating new conversation")
+                                    conversation_id = f"conv_{user_id}_{collection_name}_{uuid.uuid4().hex[:8]}"
+                                    is_new = True
+                                # else: Same collection or no collection_name - allow continuation
+                            # else: Conversation doesn't exist yet - allow continuation
+                        except Exception as db_exc:
+                            app.logger.error(f"Error checking conversation collection: {db_exc}")
+                            # On error, be safe and create new conversation
+                            conversation_id = f"conv_{user_id}_{collection_name}_{uuid.uuid4().hex[:8]}"
+                            is_new = True
                 else:
                     # Malformed conversation ID - create new one
                     app.logger.warning(f"Malformed conversation_id detected, creating new one")
                     conversation_id = f"conv_{user_id}_{collection_name}_{uuid.uuid4().hex[:8]}"
                     is_new = True
-        
-        app.logger.info(f"=== FINAL: conversation_id={conversation_id}, is_new={is_new}")
 
         # Basic validation
         if not query_text:
