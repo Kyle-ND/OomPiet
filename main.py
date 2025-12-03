@@ -846,24 +846,39 @@ def delete_chat_history(user_id):
         conversation_id_param = request.args.get('conversation_id')
         collection_name_filter = request.args.get('collection_name')
         
+        app.logger.info(f"=== DELETE HISTORY REQUEST ===")
+        app.logger.info(f"user_id: {user_id}")
+        app.logger.info(f"conversation_id_param: {conversation_id_param}")
+        app.logger.info(f"collection_name_filter: {collection_name_filter}")
+        
         # Build delete query
         if conversation_id_param:
             # Delete specific session - verify it belongs to user
             expected_prefix = f"conv_{user_id}"
+            app.logger.info(f"Checking if {conversation_id_param} starts with {expected_prefix}")
+            
             if not conversation_id_param.startswith(expected_prefix):
+                app.logger.warning(f"VALIDATION FAILED: conversation_id doesn't match user")
                 return jsonify({"error": "Conversation ID does not match user ID"}), 403
 
             query = {"conversation_id": conversation_id_param}
+            app.logger.info(f"Deleting specific conversation: {conversation_id_param}")
         else:
             # Delete all sessions for user (match any conversation starting with conv_<user_id>)
             query = {"conversation_id": {"$regex": f"^conv_{re.escape(user_id)}"}}
+            app.logger.info(f"Deleting ALL conversations for user: {user_id}")
         
         # Add collection filter if specified and valid
         if collection_name_filter and collection_name_filter in ALLOWED_QDRANT_COLLECTIONS:
             query["collection_name"] = collection_name_filter
+            app.logger.info(f"Added collection filter: {collection_name_filter}")
+        
+        app.logger.info(f"Final MongoDB delete query: {query}")
         
         # Execute deletion
         result = collection.delete_many(query)
+        
+        app.logger.info(f"Delete result: deleted_count={result.deleted_count}, acknowledged={result.acknowledged}")
         
         return jsonify({
             "status": "success",
