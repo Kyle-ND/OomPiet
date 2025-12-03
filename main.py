@@ -929,15 +929,22 @@ def proxy_rag():
                 parts = conversation_id.split('_', 3)  # Split into max 4 parts
                 if len(parts) >= 3:
                     conv_collection = parts[2]
-                    if conv_collection != collection_name:
-                        # User is trying to continue a conversation from a different mentor
-                        app.logger.warning(f"Collection mismatch: conversation has {conv_collection}, request has {collection_name}")
-                        conversation_id = f"conv_{user_id}_{collection_name}_{uuid.uuid4().hex[:8]}"
-                        is_new = True
+                    # Check if this is a valid collection name (new format) or random ID (old format)
+                    if conv_collection in ALLOWED_QDRANT_COLLECTIONS:
+                        # NEW FORMAT: conv_{user}_{collection}_{random}
+                        if conv_collection != collection_name:
+                            # User is trying to continue a conversation from a different mentor
+                            app.logger.warning(f"Collection mismatch: conversation has {conv_collection}, request has {collection_name}")
+                            conversation_id = f"conv_{user_id}_{collection_name}_{uuid.uuid4().hex[:8]}"
+                            is_new = True
+                        # else: Valid conversation ID with matching collection - continue it!
+                    else:
+                        # OLD FORMAT: conv_{user}_{random} - accept it and continue the conversation!
+                        app.logger.info(f"Old format conversation_id detected, continuing existing conversation")
+                        # Don't regenerate - let the user continue their old conversation
                 else:
-                    # Old format conversation ID (before collection was added)
-                    # Create new conversation with proper format
-                    app.logger.info(f"Old format conversation_id detected, creating new one")
+                    # Malformed conversation ID - create new one
+                    app.logger.warning(f"Malformed conversation_id detected, creating new one")
                     conversation_id = f"conv_{user_id}_{collection_name}_{uuid.uuid4().hex[:8]}"
                     is_new = True
         
