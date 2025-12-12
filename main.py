@@ -225,7 +225,7 @@ limiter = Limiter(
 
 @app.route('/upload-login', methods=['POST'])
 def upload_login():
-    return UserAuth.upload_user(UPLOAD_USERS)
+    return UserAuth.handle_upload_user(UPLOAD_USERS)
 
 def initialize_new_user_dashboard_stats(email):
     stats = {
