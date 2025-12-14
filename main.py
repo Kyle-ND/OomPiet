@@ -58,12 +58,12 @@ app = Flask(__name__, static_folder='static')
 
 # CRITICAL: CORS configuration for cross-origin requests from Vercel
 CORS(app, 
-     origins=[
-         'https://mentormate-client.vercel.app',
-         'http://localhost:3000',
-         'https://*.vercel.app',
-          'https://mentormate.co.za'# Allow Vercel preview deployments
-     ],
+    origins = [
+    "https://mentormate-client.vercel.app",
+    "http://localhost:3000",
+    "https://mentormate.co.za",   
+    "https://www.mentormate.co.za",   
+    ],
      supports_credentials=True,
      allow_headers=['Content-Type', 'Authorization', 'Accept'],
      methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
