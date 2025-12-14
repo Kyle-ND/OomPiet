@@ -61,7 +61,8 @@ CORS(app,
      origins=[
          'https://mentormate-client.vercel.app',
          'http://localhost:3000',
-         'https://*.vercel.app'  # Allow Vercel preview deployments
+         'https://*.vercel.app',
+          'https://mentormate.co.za'# Allow Vercel preview deployments
      ],
      supports_credentials=True,
      allow_headers=['Content-Type', 'Authorization', 'Accept'],
