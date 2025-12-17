@@ -263,6 +263,11 @@ def check_session():
     """Check if user has active session"""
     # DIAGNOSTIC LOGGING - Log only specific safe headers, not all headers
     app.logger.info(f"🔍 check-session called")
+    
+    # Log what cookies the browser sent in request
+    app.logger.info(f"   - request.cookies keys: {list(request.cookies.keys())}")
+    app.logger.info(f"   - request.cookies: {dict(request.cookies)}")
+    
     # Log only safe headers (not Authorization, API keys, tokens, etc.)
     safe_headers = {
         'Cookie': request.headers.get('Cookie', 'NONE'),
@@ -281,6 +286,7 @@ def check_session():
     
     cookie_name = app.config['SESSION_COOKIE_NAME']
     app.logger.info(f"   - Cookie name expected: {cookie_name}")
+    app.logger.info(f"   - SESSION_COOKIE_NAME config value: {cookie_name}")
     
     # Extract all cookies with our session name
     import re
@@ -291,6 +297,8 @@ def check_session():
     is_authenticated = 'user' in session
     user_data = session.get('user', None)
     app.logger.info(f"   - Flask session has 'user': {is_authenticated}")
+    app.logger.info(f"   - Flask session keys: {list(session.keys())}")
+    app.logger.info(f"   - Flask session.sid: {getattr(session, 'sid', 'NO SID')}")
     # Log only that user data is present, not the actual data (privacy/security)
     is_user_present = bool(user_data)
     app.logger.info(f"   - User data present: {is_user_present}")
@@ -410,7 +418,7 @@ def login():
             session_doc = {
                 'id': session_id,
                 'val': pickle.dumps(dict(session)),
-                'expiration': datetime.utcnow() + timedelta(minutes=60)
+                'expiration': datetime.now(datetime.UTC) + timedelta(minutes=60)
             }
             
             # Use replace_one with upsert to ensure write completes
@@ -480,7 +488,7 @@ def microsoft_login():
             session_doc = {
                 'id': session_id,
                 'val': pickle.dumps(dict(session)),
-                'expiration': datetime.utcnow() + timedelta(minutes=60)
+                'expiration': datetime.now(datetime.UTC) + timedelta(minutes=60)
             }
             
             # Use replace_one with upsert to ensure write completes

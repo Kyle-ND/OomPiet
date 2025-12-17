@@ -810,6 +810,12 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         except Exception as e:
             current_app.logger.error(f"✗ Unexpected error during MongoDB verification: {type(e).__name__}: {e}")
         
+        # Log the response headers to verify Set-Cookie is present
+        all_set_cookie_headers = response.headers.getlist('Set-Cookie') if hasattr(response.headers, 'getlist') else []
+        current_app.logger.info(f"📤 Response Set-Cookie headers count: {len(all_set_cookie_headers)}")
+        for idx, cookie_header in enumerate(all_set_cookie_headers):
+            current_app.logger.info(f"   [{idx}] {cookie_header[:150]}")
+        
         current_app.logger.info(f"Microsoft OAuth: Redirecting to {final_redirect}")
         return response
 
@@ -1108,6 +1114,12 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
             current_app.logger.error(f"✗ Config access error during MongoDB verification: {e}")
         except Exception as e:
             current_app.logger.error(f"✗ Unexpected error during MongoDB verification: {type(e).__name__}: {e}")
+        
+        # Log the response headers to verify Set-Cookie is present
+        all_set_cookie_headers = response.headers.getlist('Set-Cookie') if hasattr(response.headers, 'getlist') else []
+        current_app.logger.info(f"📤 Response Set-Cookie headers count: {len(all_set_cookie_headers)}")
+        for idx, cookie_header in enumerate(all_set_cookie_headers):
+            current_app.logger.info(f"   [{idx}] {cookie_header[:150]}")
         
         current_app.logger.info(f"Google OAuth: Redirecting to {final_redirect}")
         return response
