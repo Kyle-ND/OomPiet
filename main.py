@@ -25,6 +25,7 @@ from Services.auth import utils as AuthUtils
 from Services.auth.utils import login_required
 from Services.auth import user_auth as UserAuth
 from Services.payments import payment_auth as PayAuth
+from Utils.session_fix import setup_cross_site_session_config
 
 # Configuration
 API_URL = os.getenv('API_URL')
@@ -147,6 +148,9 @@ feedback_collection = db["feedback"]
 sessions_collection = db["sessions"]
 password_reset_collection = db["password_reset_tokens"]
 collection = db["rag_queries"]
+
+# Apply cross-site session config for Safari/Brave/CHIPS
+setup_cross_site_session_config(app)
 
 # Initialize OAuth
 oauth = OAuth(app)
@@ -967,7 +971,7 @@ def get_specific_session(user_id, conversation_id):
                 "answer": msg.get("answer"),
                 "timestamp": msg.get("timestamp").isoformat() if isinstance(msg.get("timestamp"), datetime) else (str(msg.get("timestamp")) if msg.get("timestamp") else None),
                 "model_used": msg.get("model_used"),
-                "is_new_conversation": msg.get("is_new_conversation"),
+                "is_new_conversation": msg.get("is_new_conversation),
                 "role": msg.get("role")
             }
             
