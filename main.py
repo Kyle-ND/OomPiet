@@ -96,6 +96,44 @@ app.config['SESSION_COOKIE_DOMAIN'] = None  # Let browser handle domain
 # CRITICAL FIX: Removed PARTITIONED - conflicts with SameSite=None in Safari
 # Partitioned is for Chrome Privacy Sandbox, breaks Safari compatibility
 
+def add_partitioned_to_cookies(response):
+    """
+    Global handler to add Partitioned attribute to all session cookies.
+    This runs after EVERY request that sets a session cookie.
+    """
+    # Get all Set-Cookie headers
+    cookies = response.headers.getlist('Set-Cookie')
+    
+    if not cookies:
+        return response
+    
+    # Clear existing Set-Cookie headers
+    response.headers.remove('Set-Cookie')
+    
+    # Get session cookie name from config
+    session_cookie_name = app.config.get('SESSION_COOKIE_NAME', 'google-login-session')
+    
+    # Process each cookie
+    modified = False
+    for cookie in cookies:
+        # Only modify session cookies
+        if session_cookie_name in cookie:
+            # Check if Partitioned is already present
+            if 'Partitioned' not in cookie and 'partitioned' not in cookie.lower():
+                # Add Partitioned attribute
+                cookie = cookie.rstrip(';').rstrip() + '; Partitioned'
+                modified = True
+        
+        # Add the (possibly modified) cookie back
+        response.headers.add('Set-Cookie', cookie)
+    
+    if modified:
+        app.logger.debug("✓ Added Partitioned attribute to session cookie")
+    
+    return response
+
+
+
 # Initialize Flask-Session (server-side sessions)
 Session(app)
 
@@ -183,26 +221,46 @@ def _content_security_policy():
         "frame-src https://accounts.google.com;"
     )
 
+# @app.after_request
+# def add_security_headers(response):
+#     # Prevent MIME type sniffing
+#     response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+#     # Prevent clickjacking
+#     response.headers.setdefault('X-Frame-Options', 'DENY')
+#     # Referrer policy
+#     response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+#     # XSS protection (legacy, still useful for some older user agents)
+#     response.headers.setdefault('X-XSS-Protection', '1; mode=block')
+#     # Permissions policy — disable sensitive features by default
+#     response.headers.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+#     # Content Security Policy
+#     response.headers.setdefault('Content-Security-Policy', _content_security_policy())
+
+#     # HSTS only in production (requires HTTPS)
+#     if MODE == 'production':
+#         response.headers.setdefault('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload')
+#         # Ensure cookies marked secure in production
+#         app.config['SESSION_COOKIE_SECURE'] = True
+
+#     return response
+
 @app.after_request
 def add_security_headers(response):
-    # Prevent MIME type sniffing
+    # Your existing security headers
     response.headers.setdefault('X-Content-Type-Options', 'nosniff')
-    # Prevent clickjacking
     response.headers.setdefault('X-Frame-Options', 'DENY')
-    # Referrer policy
     response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
-    # XSS protection (legacy, still useful for some older user agents)
     response.headers.setdefault('X-XSS-Protection', '1; mode=block')
-    # Permissions policy — disable sensitive features by default
     response.headers.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
-    # Content Security Policy
     response.headers.setdefault('Content-Security-Policy', _content_security_policy())
 
-    # HSTS only in production (requires HTTPS)
+    # HSTS only in production
     if MODE == 'production':
         response.headers.setdefault('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload')
-        # Ensure cookies marked secure in production
         app.config['SESSION_COOKIE_SECURE'] = True
+
+    # NEW: Add Partitioned attribute to session cookies for Safari/Brave
+    response = add_partitioned_to_cookies(response)
 
     return response
 
@@ -369,146 +427,271 @@ def reset_password():
     return UserAuth.handle_reset_password(users_collection)
 
 
+# @app.route('/login')
+# @app.route('/login/google')  # Add explicit Google login route
+# # @limiter.limit("5 per minute")
+# def login():
+#     # CRITICAL: Must regenerate session to avoid duplicate cookie issue
+#     # Get old session ID BEFORE clearing (clearing generates new ID)
+#     old_cookie = request.cookies.get(app.config['SESSION_COOKIE_NAME'], '')
+#     old_sid = old_cookie.split('.')[0] if old_cookie else None
+    
+#     # Delete ALL old sessions from MongoDB to prevent accumulation
+#     if old_sid:
+#         try:
+#             session_collection = client['geotech_db']['flask_sessions']
+#             existing = session_collection.find_one({"id": old_sid})
+#             if existing:
+#                 session_collection.delete_one({"id": old_sid})
+#         except Exception as e:
+#             app.logger.warning(f"Could not delete old session: {e}")
+    
+#     # NOW clear the session (this generates a NEW session ID)
+#     session.clear()
+#     # Set redirect URL for callback
+#     session['redirect_url'] = "https://mentormate-client.vercel.app/google-callback"
+    
+#     redirect_uri = url_for('google_callback', _external=True)
+    
+#     # Let Authlib automatically generate and store state in session
+#     response = google.authorize_redirect(redirect_uri=redirect_uri)
+    
+#     # CRITICAL FIX: Manually save session to MongoDB with proper write concern
+#     # Flask-Session's save_session() doesn't guarantee immediate persistence
+#     session.modified = True
+#     try:
+#         # Call save_session first (sets cookie in response)
+#         app.session_interface.save_session(app, session, response)
+        
+#         # FORCE immediate MongoDB write with acknowledgment
+#         cookie_header = response.headers.get('Set-Cookie', '')
+#         if 'google-login-session=' in cookie_header:
+#             cookie_value = cookie_header.split('google-login-session=')[1].split(';')[0]
+#             session_id = cookie_value.split('.')[0] if '.' in cookie_value else cookie_value
+            
+#             # Manually insert/update with write concern to FORCE persistence
+#             session_collection = client['geotech_db']['flask_sessions']
+#             import pickle
+            
+#             session_doc = {
+#                 'id': session_id,
+#                 'val': pickle.dumps(dict(session)),
+#                 'expiration': datetime.now(datetime.UTC) + timedelta(minutes=60)
+#             }
+            
+#             # Use replace_one with upsert to ensure write completes
+#             result = session_collection.replace_one(
+#                 {'id': session_id},
+#                 session_doc,
+#                 upsert=True
+#             )
+            
+#             # Verify write succeeded
+#             if not result.acknowledged:
+#                 app.logger.error(f"MongoDB write NOT acknowledged for session {session_id[:20]}...")
+            
+#     except Exception as e:
+#         app.logger.error(f"Session save failed: {type(e).__name__}: {e}")
+#         import traceback
+#         app.logger.error(traceback.format_exc())
+#         # Don't crash - continue with redirect, recovery function will handle it
+
+    
+#     return response
+
 @app.route('/login')
-@app.route('/login/google')  # Add explicit Google login route
-# @limiter.limit("5 per minute")
+@app.route('/login/google')
 def login():
-    # CRITICAL: Must regenerate session to avoid duplicate cookie issue
-    # Get old session ID BEFORE clearing (clearing generates new ID)
+    """Google OAuth login - VERIFIED for cross-site cookies"""
+    # Get old session ID BEFORE clearing
     old_cookie = request.cookies.get(app.config['SESSION_COOKIE_NAME'], '')
     old_sid = old_cookie.split('.')[0] if old_cookie else None
     
-    # Delete ALL old sessions from MongoDB to prevent accumulation
+    # Delete old sessions from MongoDB
     if old_sid:
         try:
             session_collection = client['geotech_db']['flask_sessions']
             existing = session_collection.find_one({"id": old_sid})
             if existing:
                 session_collection.delete_one({"id": old_sid})
+                app.logger.info(f"Deleted old session: {old_sid[:20]}...")
         except Exception as e:
             app.logger.warning(f"Could not delete old session: {e}")
     
-    # NOW clear the session (this generates a NEW session ID)
+    # Clear session (generates new ID)
     session.clear()
+    
     # Set redirect URL for callback
     session['redirect_url'] = "https://mentormate-client.vercel.app/google-callback"
     
     redirect_uri = url_for('google_callback', _external=True)
     
-    # Let Authlib automatically generate and store state in session
+    # Let Authlib handle state
     response = google.authorize_redirect(redirect_uri=redirect_uri)
     
-    # CRITICAL FIX: Manually save session to MongoDB with proper write concern
-    # Flask-Session's save_session() doesn't guarantee immediate persistence
+    # Force session save
     session.modified = True
     try:
-        # Call save_session first (sets cookie in response)
         app.session_interface.save_session(app, session, response)
         
-        # FORCE immediate MongoDB write with acknowledgment
+        # Verify cookie was set
         cookie_header = response.headers.get('Set-Cookie', '')
         if 'google-login-session=' in cookie_header:
             cookie_value = cookie_header.split('google-login-session=')[1].split(';')[0]
             session_id = cookie_value.split('.')[0] if '.' in cookie_value else cookie_value
             
-            # Manually insert/update with write concern to FORCE persistence
+            # Force MongoDB write
             session_collection = client['geotech_db']['flask_sessions']
             import pickle
+            from datetime import datetime, UTC
             
             session_doc = {
                 'id': session_id,
                 'val': pickle.dumps(dict(session)),
-                'expiration': datetime.now(datetime.UTC) + timedelta(minutes=60)
+                'expiration': datetime.now(UTC) + timedelta(minutes=60)
             }
             
-            # Use replace_one with upsert to ensure write completes
             result = session_collection.replace_one(
                 {'id': session_id},
                 session_doc,
                 upsert=True
             )
             
-            # Verify write succeeded
-            if not result.acknowledged:
-                app.logger.error(f"MongoDB write NOT acknowledged for session {session_id[:20]}...")
+            if result.acknowledged:
+                app.logger.info(f"✓ Session saved: {session_id[:20]}...")
+            else:
+                app.logger.error(f"✗ Session save not acknowledged!")
             
     except Exception as e:
-        app.logger.error(f"Session save failed: {type(e).__name__}: {e}")
-        import traceback
-        app.logger.error(traceback.format_exc())
-        # Don't crash - continue with redirect, recovery function will handle it
+        app.logger.error(f"Session save failed: {e}")
     
     return response
 
 @app.route('/login/microsoft')
 def microsoft_login():
-    """Initiate Microsoft OAuth login"""
-    # CRITICAL: Must regenerate session to avoid duplicate cookie issue
-    # Get old session ID BEFORE clearing (clearing generates new ID)
+    """Microsoft OAuth login - VERIFIED for cross-site cookies"""
+    # Same pattern as Google login above
     old_cookie = request.cookies.get(app.config['SESSION_COOKIE_NAME'], '')
     old_sid = old_cookie.split('.')[0] if old_cookie else None
     
-    # Delete ALL old sessions from MongoDB to prevent accumulation
     if old_sid:
         try:
             session_collection = client['geotech_db']['flask_sessions']
             existing = session_collection.find_one({"id": old_sid})
             if existing:
                 session_collection.delete_one({"id": old_sid})
+                app.logger.info(f"Deleted old session: {old_sid[:20]}...")
         except Exception as e:
             app.logger.warning(f"Could not delete old session: {e}")
     
-    # NOW clear the session (this generates a NEW session ID)
     session.clear()
-    
-    # Set redirect URL for callback
     session['redirect_url'] = "https://mentormate-client.vercel.app/microsoft-callback"
     
-    # Generate authorization URL - let Authlib handle state automatically
     redirect_uri = url_for('microsoft_callback', _external=True)
     response = microsoft.authorize_redirect(redirect_uri)
     
-    # CRITICAL FIX: Manually save session to MongoDB with proper write concern
-    # Flask-Session's save_session() doesn't guarantee immediate persistence
     session.modified = True
     try:
-        # Call save_session first (sets cookie in response)
         app.session_interface.save_session(app, session, response)
         
-        # FORCE immediate MongoDB write with acknowledgment
         cookie_header = response.headers.get('Set-Cookie', '')
         if 'google-login-session=' in cookie_header:
             cookie_value = cookie_header.split('google-login-session=')[1].split(';')[0]
             session_id = cookie_value.split('.')[0] if '.' in cookie_value else cookie_value
             
-            # Manually insert/update with write concern to FORCE persistence
             session_collection = client['geotech_db']['flask_sessions']
             import pickle
+            from datetime import datetime, UTC
             
             session_doc = {
                 'id': session_id,
                 'val': pickle.dumps(dict(session)),
-                'expiration': datetime.now(datetime.UTC) + timedelta(minutes=60)
+                'expiration': datetime.now(UTC) + timedelta(minutes=60)
             }
             
-            # Use replace_one with upsert to ensure write completes
             result = session_collection.replace_one(
                 {'id': session_id},
                 session_doc,
                 upsert=True
             )
             
-            # Verify write succeeded
-            if not result.acknowledged:
-                app.logger.error(f"MongoDB write NOT acknowledged for session {session_id[:20]}...")
+            if result.acknowledged:
+                app.logger.info(f"✓ Session saved: {session_id[:20]}...")
             
     except Exception as e:
-        app.logger.error(f"Session save failed: {type(e).__name__}: {e}")
-        import traceback
-        app.logger.error(traceback.format_exc())
-        # Don't crash - continue with redirect, recovery function will handle it
+        app.logger.error(f"Session save failed: {e}")
     
     return response
+
+# @app.route('/login/microsoft')
+# def microsoft_login():
+#     """Initiate Microsoft OAuth login"""
+#     # CRITICAL: Must regenerate session to avoid duplicate cookie issue
+#     # Get old session ID BEFORE clearing (clearing generates new ID)
+#     old_cookie = request.cookies.get(app.config['SESSION_COOKIE_NAME'], '')
+#     old_sid = old_cookie.split('.')[0] if old_cookie else None
+    
+#     # Delete ALL old sessions from MongoDB to prevent accumulation
+#     if old_sid:
+#         try:
+#             session_collection = client['geotech_db']['flask_sessions']
+#             existing = session_collection.find_one({"id": old_sid})
+#             if existing:
+#                 session_collection.delete_one({"id": old_sid})
+#         except Exception as e:
+#             app.logger.warning(f"Could not delete old session: {e}")
+    
+#     # NOW clear the session (this generates a NEW session ID)
+#     session.clear()
+    
+#     # Set redirect URL for callback
+#     session['redirect_url'] = "https://mentormate-client.vercel.app/microsoft-callback"
+    
+#     # Generate authorization URL - let Authlib handle state automatically
+#     redirect_uri = url_for('microsoft_callback', _external=True)
+#     response = microsoft.authorize_redirect(redirect_uri)
+    
+#     # CRITICAL FIX: Manually save session to MongoDB with proper write concern
+#     # Flask-Session's save_session() doesn't guarantee immediate persistence
+#     session.modified = True
+#     try:
+#         # Call save_session first (sets cookie in response)
+#         app.session_interface.save_session(app, session, response)
+        
+#         # FORCE immediate MongoDB write with acknowledgment
+#         cookie_header = response.headers.get('Set-Cookie', '')
+#         if 'google-login-session=' in cookie_header:
+#             cookie_value = cookie_header.split('google-login-session=')[1].split(';')[0]
+#             session_id = cookie_value.split('.')[0] if '.' in cookie_value else cookie_value
+            
+#             # Manually insert/update with write concern to FORCE persistence
+#             session_collection = client['geotech_db']['flask_sessions']
+#             import pickle
+            
+#             session_doc = {
+#                 'id': session_id,
+#                 'val': pickle.dumps(dict(session)),
+#                 'expiration': datetime.now(datetime.UTC) + timedelta(minutes=60)
+#             }
+            
+#             # Use replace_one with upsert to ensure write completes
+#             result = session_collection.replace_one(
+#                 {'id': session_id},
+#                 session_doc,
+#                 upsert=True
+#             )
+            
+#             # Verify write succeeded
+#             if not result.acknowledged:
+#                 app.logger.error(f"MongoDB write NOT acknowledged for session {session_id[:20]}...")
+            
+#     except Exception as e:
+#         app.logger.error(f"Session save failed: {type(e).__name__}: {e}")
+#         import traceback
+#         app.logger.error(traceback.format_exc())
+#         # Don't crash - continue with redirect, recovery function will handle it
+    
+#     return response
 
 @app.route('/microsoft/callback')
 def microsoft_callback():

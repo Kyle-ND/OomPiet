@@ -14,6 +14,23 @@ TENANT_ID = os.getenv("TID")
 CLIENT_ID = os.getenv("CID")  
 CLIENT_SECRET = os.getenv("SID")  
 
+def add_partitioned_to_response(response):
+    """Add Partitioned attribute to session cookies for Safari/Brave"""
+    cookies = response.headers.getlist('Set-Cookie')
+    if not cookies:
+        return response
+    
+    response.headers.remove('Set-Cookie')
+    session_cookie_name = current_app.config.get('SESSION_COOKIE_NAME', 'google-login-session')
+    
+    for cookie in cookies:
+        if session_cookie_name in cookie and 'Partitioned' not in cookie:
+            cookie = cookie.rstrip(';').rstrip() + '; Partitioned'
+            current_app.logger.info(f"✓ Added Partitioned to cookie")
+        response.headers.add('Set-Cookie', cookie)
+    
+    return response
+
 
 def recover_oauth_session_from_cookies(provider_name, state_in_url):
     """
@@ -253,71 +270,7 @@ def handle_signin(users_collection):
         return jsonify({'success': False, 'error': f'An internal server error occurred: {str(e)}'}), 500
 
 
-# def handle_signin(users_collection):
 
-#     try:
-#         data = request.get_json()
-#         email = data.get('email', '').strip().lower()
-#         password = data.get('password', '')
-
-#         # Validation
-#         if not email or not password:
-#             return jsonify({'success': False, 'error': 'Email and password are required'}), 400
-
-#         # Find user
-#         user = users_collection.find_one({'email': email})
-#         if not user:
-#             return jsonify({'success': False, 'error': 'Invalid email or password'}), 401
-
-#         # Check if user signed up with email/password (not Google)
-#         if user.get('auth_method') != 'email':
-#             return jsonify({'success': False, 'error': 'Please sign in with Google'}), 401
-
-#         # Verify password
-#         if not check_password_hash(user['password'], password):
-#             return jsonify({'success': False, 'error': 'Invalid email or password'}), 401
-        
-#          # **NEW: Clean up expired sessions first**
-#         current_app.logger.info(f"Cleaning up expired sessions for user: {email}")
-#         AuthUtils.cleanup_user_expired_sessions(email)
-
-#         # Check if user already has an active session
-#         current_app.logger.info(f"Checking for active session for user: {email}")
-#         active_session = AuthUtils.get_active_session_info(email)
-#         current_app.logger.info(f"Active session found: {active_session is not None}")
-
-#         if active_session:
-#             current_app.logger.info(f"Session conflict detected for user: {email}")
-#             # Return session conflict information
-#             return jsonify({
-#                 'success': False,
-#                 'error': 'session_conflict',
-#                 'message': 'This account is already active on another device. Do you want to continue and log out the other session?',
-#                 'session_info': {
-#                     'user_agent': active_session['user_agent'],
-#                     'ip_address': active_session['ip_address'],
-#                     'last_activity': active_session['last_activity'].isoformat()
-#                 }
-#             }), 409
-
-#         # If no session conflict, continue with successful login
-#         # Set session data
-#         session.permanent = True
-#         session['user'] = {
-#             'email': user['email'],
-#             'name': user.get('name', ''),
-#             'picture': user.get('picture', '/static/default-profile.png'),
-#             'auth_method': user.get('auth_method', 'email'),
-#             'premium': user.get('premium', False)
-#         }
-#         session['session_id'] = AuthUtils.create_user_session(email)
-
-#         current_app.logger.info(f"Login successful for user: {email}")
-#         return jsonify({'success': True, 'message': 'Login successful', 'user': session['user']}), 200
-
-#     except Exception as e:
-#         current_app.logger.error(f"Signin error: {str(e)}")
-#         return jsonify({'success': False, 'error': f'An internal server error occurred: {str(e)}'}), 500
 
     
 
@@ -537,28 +490,26 @@ def handle_reset_password(users_collection):
         current_app.logger.error(f"Error in reset_password: {str(e)}")
         return jsonify({'success': False, 'error': 'An error occurred while resetting your password'}), 500
     
-
 def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_dashboard_stats):
+    """
+    UPDATED: Microsoft OAuth callback with Partitioned cookie support
+    """
     current_app.logger.info("=== MICROSOFT CALLBACK START ===")
     current_app.logger.info(f"Request cookies: {list(request.cookies.keys())}")
-    current_app.logger.info(f"Session contains user: {'user' in session}")
     
     state_in_url = request.args.get('state')
     current_app.logger.info(f"State in URL: {state_in_url}")
     
-    # Attempt to recover OAuth session from alternate cookies if needed
+    # Attempt to recover OAuth session
     recover_oauth_session_from_cookies('microsoft', state_in_url)
     
-    current_app.logger.info(f"Final session state keys: {[k for k in session.keys() if k.startswith('_state_')]}")
-    
-    # Get redirect URL from session
     redirect_url = session.get('redirect_url', "https://mentormate-client.vercel.app/microsoft-callback")
     
     try:
-        # Authlib automatically verifies state from session
         current_app.logger.info("Calling authorize_access_token()...")
         token = microsoft.authorize_access_token()
         current_app.logger.info(f"Token received: {token is not None}")
+        
         if not token:
             raise ValueError("Failed to get access token")
 
@@ -573,12 +524,12 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         if not user_email:
             raise ValueError("No email found in user info")
 
-        # Check if user already has an active session - if so, remove it
+        # Check and remove existing session
         active_session = AuthUtils.get_active_session_info(user_email)
         if active_session:
             AuthUtils.remove_user_session(user_email)
         
-        # Fetch profile picture using the helper function
+        # Fetch profile picture
         profile_picture = get_microsoft_profile_picture(microsoft, token)
 
         user_data = {
@@ -600,10 +551,10 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
 
         db_user = users_collection.find_one({"email": user_data["email"]})
 
-        # CRITICAL: Clear any old session data and regenerate session ID
-        # This prevents issues when browser sends multiple session cookies
+        # Clear old session
         session.clear()
         
+        # Create new session
         session_id = AuthUtils.create_user_session(user_data["email"])
 
         session.permanent = True
@@ -617,115 +568,43 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         session['session_id'] = session_id
         session.modified = True
         
-        # Log session creation for debugging
         current_app.logger.info(f"Microsoft OAuth: Session created for {db_user['email']}")
-        current_app.logger.info(f"Session data: user={session.get('user')}, session_id={session.get('session_id')}")
-        current_app.logger.info(f"Session.permanent: {session.permanent}")
-        current_app.logger.info(f"Session.modified: {session.modified}")
+        
+        # Create redirect with session token
+        session_token = session.sid if hasattr(session, 'sid') else str(uuid.uuid4())
         
         params = {
             "email": db_user["email"],
             "name": db_user["name"],
-            "picture": db_user.get("picture", "/static/default-profile.png")
+            "picture": db_user.get("picture", "/static/default-profile.png"),
+            "session_token": session_token
         }
         
-        # Create session token for fallback (in case cookies are blocked)
-        session_token = session.sid if hasattr(session, 'sid') else str(uuid.uuid4())
-        params['session_token'] = session_token
-        
+        from urllib.parse import urlencode
         final_redirect = f"{redirect_url}?{urlencode(params)}"
         
-        # CRITICAL FIX: Use server-side 302 redirect BEFORE creating response
-        # This preserves the Set-Cookie header in the HTTP response
-        # JavaScript redirects lose cookies because they're client-side navigation
-        current_app.logger.info(f"Microsoft OAuth: Using 302 redirect to preserve Set-Cookie")
-        response = redirect(final_redirect, code=302)
+        # Create response
+        current_app.logger.info(f"Microsoft OAuth: Using 302 redirect")
+        response = make_response(redirect(final_redirect, code=302))
         
-        # CRITICAL: Mark session as modified and force save
+        # Force session save
         session.modified = True
         session.permanent = True
-        
-        # Log what we're about to save (safe logging without slicing None values)
-        session_sid = getattr(session, 'sid', None)
-        session_sid_str = (str(session_sid)[:20] + '...' if session_sid else 'NO SID')
-        current_app.logger.info(f"🔍 DEBUG: Session data before save:")
-        current_app.logger.info(f"   - session.sid: {session_sid_str}")
-        
-        user_email = session.get('user', {}).get('email', 'NO EMAIL')
-        # Only log email if it's not the default (safer than logging full user object)
-        current_app.logger.info(f"   - session.user.email: {user_email if user_email != 'NO EMAIL' else 'NONE'}")
-        current_app.logger.info(f"   - session.permanent: {session.permanent}")
-        current_app.logger.info(f"   - session.modified: {session.modified}")
-        
-        # Force session to be saved to MongoDB with proper cookie attributes
         current_app.session_interface.save_session(current_app, session, response)
         
-        # CRITICAL: Verify Set-Cookie was added to response, if not add it manually
-        # This ensures the cookie reaches the browser even if Flask-Session fails
-        if not response.headers.get('Set-Cookie'):
-            current_app.logger.warning("⚠ Set-Cookie not auto-generated by Flask-Session, adding manually")
-            # Generate proper cookie with all required attributes
-            cookie_name = current_app.config.get('SESSION_COOKIE_NAME', 'google-login-session')
-            if hasattr(session, 'sid'):
-                session_value = session.sid
-            else:
-                session_value = str(uuid.uuid4())
-            
-            response.set_cookie(
-                cookie_name,
-                value=session_value,
-                max_age=3600,  # 1 hour
-                secure=True,
-                httponly=True,
-                samesite='None',
-                path='/'
-            )
-            current_app.logger.info(f"✓ Manually set cookie: {cookie_name}")
-        else:
-            set_cookie = response.headers.get('Set-Cookie')
-            current_app.logger.info(f"✓ Set-Cookie auto-generated: {set_cookie[:150]}")
-            # Verify SameSite and Secure flags are present
-            if 'SameSite=None' in set_cookie and 'Secure' in set_cookie:
-                current_app.logger.info("✓✓ Set-Cookie has SameSite=None and Secure flags")
-            else:
-                current_app.logger.warning(f"⚠ Set-Cookie missing required flags. Full: {set_cookie}")
+        # NEW: Add Partitioned attribute
+        response = add_partitioned_to_response(response)
         
-        # DIAGNOSTIC: Verify session was saved to MongoDB (safe implementation)
-        try:
-            # Get MongoDB client and verify session was saved
-            mongo_client = current_app.config.get('SESSION_MONGODB')
-            db_name = current_app.config.get('SESSION_MONGODB_DB', 'geotech_db')
-            collection_name = current_app.config.get('SESSION_MONGODB_COLLECT', 'flask_sessions')
-            
-            if mongo_client:
-                session_collection = mongo_client[db_name][collection_name]
-                
-                # Only check if session has a sid attribute
-                if hasattr(session, 'sid') and session.sid:
-                    session_sid = str(session.sid)  # Ensure it's a string before slicing
-                    session_sid_short = session_sid[:20] + '...' if len(session_sid) > 20 else session_sid
-                    
-                    saved_session = session_collection.find_one({'id': session.sid})
-                    if saved_session:
-                        current_app.logger.info(f"✓ Session VERIFIED in MongoDB: {session_sid_short}")
-                    else:
-                        current_app.logger.error(f"✗ Session NOT found in MongoDB after save! SID: {session_sid_short}")
-                else:
-                    current_app.logger.warning("⚠ Session has no sid attribute, skipping MongoDB verification")
-            else:
-                current_app.logger.warning("⚠ SESSION_MONGODB not configured, skipping verification")
-        except AttributeError as e:
-            current_app.logger.error(f"✗ Config access error during MongoDB verification: {e}")
-        except Exception as e:
-            current_app.logger.error(f"✗ Unexpected error during MongoDB verification: {type(e).__name__}: {e}")
+        # Log cookie headers
+        set_cookie_headers = response.headers.getlist('Set-Cookie')
+        current_app.logger.info(f"📤 Response Set-Cookie headers: {len(set_cookie_headers)}")
         
-        # Log the response headers to verify Set-Cookie is present
-        all_set_cookie_headers = response.headers.getlist('Set-Cookie') if hasattr(response.headers, 'getlist') else []
-        current_app.logger.info(f"📤 Response Set-Cookie headers count: {len(all_set_cookie_headers)}")
-        for idx, cookie_header in enumerate(all_set_cookie_headers):
-            current_app.logger.info(f"   [{idx}] {cookie_header[:150]}")
+        for idx, cookie in enumerate(set_cookie_headers):
+            current_app.logger.info(f"   [{idx}] {cookie[:200]}")
+            if 'Partitioned' in cookie:
+                current_app.logger.info("   ✓ Has Partitioned attribute")
         
-        current_app.logger.info(f"Microsoft OAuth: Redirecting to {final_redirect}")
+        current_app.logger.info(f"Redirecting to {final_redirect[:100]}...")
         return response
 
     except Exception as e:
@@ -733,8 +612,206 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         import traceback
         current_app.logger.error(traceback.format_exc())
         session.clear()
-
         return redirect(f"{redirect_url}?error=auth_failed&message={str(e)}")
+    
+
+# def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_dashboard_stats):
+#     current_app.logger.info("=== MICROSOFT CALLBACK START ===")
+#     current_app.logger.info(f"Request cookies: {list(request.cookies.keys())}")
+#     current_app.logger.info(f"Session contains user: {'user' in session}")
+    
+#     state_in_url = request.args.get('state')
+#     current_app.logger.info(f"State in URL: {state_in_url}")
+    
+#     # Attempt to recover OAuth session from alternate cookies if needed
+#     recover_oauth_session_from_cookies('microsoft', state_in_url)
+    
+#     current_app.logger.info(f"Final session state keys: {[k for k in session.keys() if k.startswith('_state_')]}")
+    
+#     # Get redirect URL from session
+#     redirect_url = session.get('redirect_url', "https://mentormate-client.vercel.app/microsoft-callback")
+    
+#     try:
+#         # Authlib automatically verifies state from session
+#         current_app.logger.info("Calling authorize_access_token()...")
+#         token = microsoft.authorize_access_token()
+#         current_app.logger.info(f"Token received: {token is not None}")
+#         if not token:
+#             raise ValueError("Failed to get access token")
+
+#         resp = microsoft.get('https://graph.microsoft.com/v1.0/me', token=token)
+#         user_info = resp.json()
+        
+#         if not user_info or 'mail' not in user_info and 'userPrincipalName' not in user_info:
+#             raise ValueError("Failed to get user info from Microsoft")
+
+#         user_email = user_info.get('mail') or user_info.get('userPrincipalName')
+        
+#         if not user_email:
+#             raise ValueError("No email found in user info")
+
+#         # Check if user already has an active session - if so, remove it
+#         active_session = AuthUtils.get_active_session_info(user_email)
+#         if active_session:
+#             AuthUtils.remove_user_session(user_email)
+        
+#         # Fetch profile picture using the helper function
+#         profile_picture = get_microsoft_profile_picture(microsoft, token)
+
+#         user_data = {
+#             "name": user_info.get("displayName", "User"),
+#             "email": user_email,
+#             "picture": profile_picture,
+#             "last_login": datetime.now(timezone.utc),
+#             "auth_method": "microsoft"
+#         }
+
+#         result = users_collection.update_one(
+#             {"email": user_data["email"]},
+#             {"$set": user_data},
+#             upsert=True
+#         )
+
+#         if result.upserted_id:
+#             initialize_new_user_dashboard_stats(user_data["email"])
+
+#         db_user = users_collection.find_one({"email": user_data["email"]})
+
+#         # CRITICAL: Clear any old session data and regenerate session ID
+#         # This prevents issues when browser sends multiple session cookies
+#         session.clear()
+        
+#         session_id = AuthUtils.create_user_session(user_data["email"])
+
+#         session.permanent = True
+#         session['user'] = {
+#             'email': db_user['email'],
+#             'name': db_user['name'],
+#             'picture': db_user['picture'],
+#             'auth_method': db_user['auth_method'],
+#             'premium': db_user.get('premium', False)
+#         }
+#         session['session_id'] = session_id
+#         session.modified = True
+        
+#         # Log session creation for debugging
+#         current_app.logger.info(f"Microsoft OAuth: Session created for {db_user['email']}")
+#         current_app.logger.info(f"Session data: user={session.get('user')}, session_id={session.get('session_id')}")
+#         current_app.logger.info(f"Session.permanent: {session.permanent}")
+#         current_app.logger.info(f"Session.modified: {session.modified}")
+        
+#         params = {
+#             "email": db_user["email"],
+#             "name": db_user["name"],
+#             "picture": db_user.get("picture", "/static/default-profile.png")
+#         }
+        
+#         # Create session token for fallback (in case cookies are blocked)
+#         session_token = session.sid if hasattr(session, 'sid') else str(uuid.uuid4())
+#         params['session_token'] = session_token
+        
+#         final_redirect = f"{redirect_url}?{urlencode(params)}"
+        
+#         # CRITICAL FIX: Use server-side 302 redirect BEFORE creating response
+#         # This preserves the Set-Cookie header in the HTTP response
+#         # JavaScript redirects lose cookies because they're client-side navigation
+#         current_app.logger.info(f"Microsoft OAuth: Using 302 redirect to preserve Set-Cookie")
+#         response = redirect(final_redirect, code=302)
+        
+#         # CRITICAL: Mark session as modified and force save
+#         session.modified = True
+#         session.permanent = True
+        
+#         # Log what we're about to save (safe logging without slicing None values)
+#         session_sid = getattr(session, 'sid', None)
+#         session_sid_str = (str(session_sid)[:20] + '...' if session_sid else 'NO SID')
+#         current_app.logger.info(f"🔍 DEBUG: Session data before save:")
+#         current_app.logger.info(f"   - session.sid: {session_sid_str}")
+        
+#         user_email = session.get('user', {}).get('email', 'NO EMAIL')
+#         # Only log email if it's not the default (safer than logging full user object)
+#         current_app.logger.info(f"   - session.user.email: {user_email if user_email != 'NO EMAIL' else 'NONE'}")
+#         current_app.logger.info(f"   - session.permanent: {session.permanent}")
+#         current_app.logger.info(f"   - session.modified: {session.modified}")
+        
+#         # Force session to be saved to MongoDB with proper cookie attributes
+#         current_app.session_interface.save_session(current_app, session, response)
+        
+#         # CRITICAL: Verify Set-Cookie was added to response, if not add it manually
+#         # This ensures the cookie reaches the browser even if Flask-Session fails
+#         if not response.headers.get('Set-Cookie'):
+#             current_app.logger.warning("⚠ Set-Cookie not auto-generated by Flask-Session, adding manually")
+#             # Generate proper cookie with all required attributes
+#             cookie_name = current_app.config.get('SESSION_COOKIE_NAME', 'google-login-session')
+#             if hasattr(session, 'sid'):
+#                 session_value = session.sid
+#             else:
+#                 session_value = str(uuid.uuid4())
+            
+#             response.set_cookie(
+#                 cookie_name,
+#                 value=session_value,
+#                 max_age=3600,  # 1 hour
+#                 secure=True,
+#                 httponly=True,
+#                 samesite='None',
+#                 path='/'
+#             )
+#             current_app.logger.info(f"✓ Manually set cookie: {cookie_name}")
+#         else:
+#             set_cookie = response.headers.get('Set-Cookie')
+#             current_app.logger.info(f"✓ Set-Cookie auto-generated: {set_cookie[:150]}")
+#             # Verify SameSite and Secure flags are present
+#             if 'SameSite=None' in set_cookie and 'Secure' in set_cookie:
+#                 current_app.logger.info("✓✓ Set-Cookie has SameSite=None and Secure flags")
+#             else:
+#                 current_app.logger.warning(f"⚠ Set-Cookie missing required flags. Full: {set_cookie}")
+        
+#         # DIAGNOSTIC: Verify session was saved to MongoDB (safe implementation)
+#         try:
+#             # Get MongoDB client and verify session was saved
+#             mongo_client = current_app.config.get('SESSION_MONGODB')
+#             db_name = current_app.config.get('SESSION_MONGODB_DB', 'geotech_db')
+#             collection_name = current_app.config.get('SESSION_MONGODB_COLLECT', 'flask_sessions')
+            
+#             if mongo_client:
+#                 session_collection = mongo_client[db_name][collection_name]
+                
+#                 # Only check if session has a sid attribute
+#                 if hasattr(session, 'sid') and session.sid:
+#                     session_sid = str(session.sid)  # Ensure it's a string before slicing
+#                     session_sid_short = session_sid[:20] + '...' if len(session_sid) > 20 else session_sid
+                    
+#                     saved_session = session_collection.find_one({'id': session.sid})
+#                     if saved_session:
+#                         current_app.logger.info(f"✓ Session VERIFIED in MongoDB: {session_sid_short}")
+#                     else:
+#                         current_app.logger.error(f"✗ Session NOT found in MongoDB after save! SID: {session_sid_short}")
+#                 else:
+#                     current_app.logger.warning("⚠ Session has no sid attribute, skipping MongoDB verification")
+#             else:
+#                 current_app.logger.warning("⚠ SESSION_MONGODB not configured, skipping verification")
+#         except AttributeError as e:
+#             current_app.logger.error(f"✗ Config access error during MongoDB verification: {e}")
+#         except Exception as e:
+#             current_app.logger.error(f"✗ Unexpected error during MongoDB verification: {type(e).__name__}: {e}")
+        
+#         # Log the response headers to verify Set-Cookie is present
+#         all_set_cookie_headers = response.headers.getlist('Set-Cookie') if hasattr(response.headers, 'getlist') else []
+#         current_app.logger.info(f"📤 Response Set-Cookie headers count: {len(all_set_cookie_headers)}")
+#         for idx, cookie_header in enumerate(all_set_cookie_headers):
+#             current_app.logger.info(f"   [{idx}] {cookie_header[:150]}")
+        
+#         current_app.logger.info(f"Microsoft OAuth: Redirecting to {final_redirect}")
+#         return response
+
+#     except Exception as e:
+#         current_app.logger.error(f"Error in Microsoft callback: {str(e)}")
+#         import traceback
+#         current_app.logger.error(traceback.format_exc())
+#         session.clear()
+
+#         return redirect(f"{redirect_url}?error=auth_failed&message={str(e)}")
     
 def get_microsoft_profile_picture(microsoft, token):
     """Fetch user's profile picture from Microsoft Graph"""
@@ -757,7 +834,204 @@ def get_microsoft_profile_picture(microsoft, token):
 
 
 
+# def handle_google_callback(google, users_collection, initialize_new_user_dashboard_stats):
+#     current_app.logger.info("=== GOOGLE CALLBACK START ===")
+#     current_app.logger.info(f"Request cookies: {list(request.cookies.keys())}")
+#     current_app.logger.info(f"Session contains user: {'user' in session}")
+    
+#     state_in_url = request.args.get('state')
+#     current_app.logger.info(f"State in URL: {state_in_url}")
+    
+#     # Attempt to recover OAuth session from alternate cookies if needed
+#     recover_oauth_session_from_cookies('google', state_in_url)
+    
+#     current_app.logger.info(f"Final session state keys: {[k for k in session.keys() if k.startswith('_state_')]}")
+    
+#     # Get redirect URL from session (set in main.py /login endpoint)
+#     redirect_url = session.get('redirect_url', 'https://mentormate-client.vercel.app/google-callback')
+    
+#     try:
+#         # Authlib automatically verifies state from session
+#         current_app.logger.info("Calling authorize_access_token()...")
+#         token = google.authorize_access_token()
+#         current_app.logger.info(f"Token received: {token is not None}")
+#         if not token:
+#             raise ValueError("Failed to get access token")
+
+#         # Get user info from Google
+#         resp = google.get('https://www.googleapis.com/oauth2/v3/userinfo', token=token)
+#         user_info = resp.json()
+        
+#         if not user_info or 'email' not in user_info:
+#             raise ValueError("Failed to get user info")
+
+#         # Check if user already has an active session - if so, remove it
+#         active_session = AuthUtils.get_active_session_info(user_info["email"])
+#         if active_session:
+#             AuthUtils.remove_user_session(user_info["email"])
+
+#         # Store user data in MongoDB
+#         user_data = {
+#             "name": user_info.get("name", "User"),
+#             "email": user_info["email"],
+#             "picture": get_google_profile_picture(google, token) if not user_info.get("picture") else user_info.get("picture", "/static/default-profile.png"),
+#             "last_login": datetime.now(timezone.utc),
+#             "auth_method": "google"
+#         }
+
+#         # Update user or create if doesn't exist
+#         result = users_collection.update_one(
+#             {"email": user_data["email"]},
+#             {"$set": user_data},
+#             upsert=True
+#         )
+
+#         # Initialize dashboard stats for new users
+#         if result.upserted_id:
+#             initialize_new_user_dashboard_stats(user_data["email"])
+
+#         # Fetch the full user record (including premium status)
+#         db_user = users_collection.find_one({"email": user_data["email"]})
+
+#         # CRITICAL: Clear any old session data and regenerate session ID
+#         # This prevents issues when browser sends multiple session cookies
+#         session.clear()
+        
+#         # Create new session
+#         session_id = AuthUtils.create_user_session(user_data["email"]) 
+
+#         # Set session, include premium status if present
+#         session.permanent = True
+#         session['user'] = {
+#             'email': db_user['email'],
+#             'name': db_user['name'],
+#             'picture': db_user['picture'],
+#             'auth_method': db_user['auth_method'],
+#             'premium': db_user.get('premium', False)
+#         }
+#         session['session_id'] = session_id
+#         session.modified = True
+        
+#         # Log session creation for debugging
+#         current_app.logger.info(f"Google OAuth: Session created for {db_user['email']}")
+#         current_app.logger.info(f"Session data: user={session.get('user')}, session_id={session.get('session_id')}")
+#         current_app.logger.info(f"Session.permanent: {session.permanent}")
+#         current_app.logger.info(f"Session.modified: {session.modified}")
+        
+#         # Create session token for fallback (in case cookies are blocked)
+#         session_token = session.sid if hasattr(session, 'sid') else str(uuid.uuid4())
+        
+#         # Redirect to frontend with user info and session token
+#         from urllib.parse import quote
+#         redirect_params = f"email={quote(db_user['email'])}&name={quote(db_user['name'])}&picture={quote(db_user.get('picture', '/static/default-profile.png'))}&session_token={session_token}"
+#         final_redirect = f"{redirect_url}?{redirect_params}"
+        
+#         # CRITICAL FIX: Use server-side 302 redirect BEFORE creating response
+#         # This preserves the Set-Cookie header in the HTTP response
+#         # JavaScript redirects lose cookies because they're client-side navigation
+#         current_app.logger.info(f"Google OAuth: Using 302 redirect to preserve Set-Cookie")
+#         response = redirect(final_redirect, code=302)
+        
+#         # CRITICAL: Mark session as modified and force save
+#         session.modified = True
+#         session.permanent = True
+        
+#         # Log what we're about to save (safe logging without slicing None values)
+#         session_sid = getattr(session, 'sid', None)
+#         session_sid_str = (str(session_sid)[:20] + '...' if session_sid else 'NO SID')
+#         current_app.logger.info(f"🔍 DEBUG: Session data before save:")
+#         current_app.logger.info(f"   - session.sid: {session_sid_str}")
+        
+#         user_email = session.get('user', {}).get('email', 'NO EMAIL')
+#         # Only log email if it's not the default (safer than logging full user object)
+#         current_app.logger.info(f"   - session.user.email: {user_email if user_email != 'NO EMAIL' else 'NONE'}")
+#         current_app.logger.info(f"   - session.permanent: {session.permanent}")
+#         current_app.logger.info(f"   - session.modified: {session.modified}")
+        
+#         # Force session to be saved to MongoDB with proper cookie attributes
+#         current_app.session_interface.save_session(current_app, session, response)
+        
+#         # CRITICAL: Verify Set-Cookie was added to response, if not add it manually
+#         # This ensures the cookie reaches the browser even if Flask-Session fails
+#         if not response.headers.get('Set-Cookie'):
+#             current_app.logger.warning("⚠ Set-Cookie not auto-generated by Flask-Session, adding manually")
+#             # Generate proper cookie with all required attributes
+#             cookie_name = current_app.config.get('SESSION_COOKIE_NAME', 'google-login-session')
+#             if hasattr(session, 'sid'):
+#                 session_value = session.sid
+#             else:
+#                 session_value = str(uuid.uuid4())
+            
+#             response.set_cookie(
+#                 cookie_name,
+#                 value=session_value,
+#                 max_age=3600,  # 1 hour
+#                 secure=True,
+#                 httponly=True,
+#                 samesite='None',
+#                 path='/'
+#             )
+#             current_app.logger.info(f"✓ Manually set cookie: {cookie_name} = {session_value[:20]}...")
+#         else:
+#             set_cookie = response.headers.get('Set-Cookie')
+#             current_app.logger.info(f"✓ Set-Cookie auto-generated: {set_cookie[:200]}")
+#             # Verify SameSite and Secure flags are present
+#             if 'SameSite=None' in set_cookie and 'Secure' in set_cookie:
+#                 current_app.logger.info("✓✓ Set-Cookie has SameSite=None and Secure flags")
+#             else:
+#                 current_app.logger.warning(f"⚠ Set-Cookie missing required flags. Full: {set_cookie}")
+        
+#         # DIAGNOSTIC: Verify session was saved to MongoDB (safe implementation)
+#         try:
+#             # Get MongoDB client and verify session was saved
+#             mongo_client = current_app.config.get('SESSION_MONGODB')
+#             db_name = current_app.config.get('SESSION_MONGODB_DB', 'geotech_db')
+#             collection_name = current_app.config.get('SESSION_MONGODB_COLLECT', 'flask_sessions')
+            
+#             if mongo_client:
+#                 session_collection = mongo_client[db_name][collection_name]
+                
+#                 # Only check if session has a sid attribute
+#                 if hasattr(session, 'sid') and session.sid:
+#                     session_sid = str(session.sid)  # Ensure it's a string before slicing
+#                     session_sid_short = session_sid[:20] + '...' if len(session_sid) > 20 else session_sid
+                    
+#                     saved_session = session_collection.find_one({'id': session.sid})
+#                     if saved_session:
+#                         current_app.logger.info(f"✓ Session VERIFIED in MongoDB: {session_sid_short}")
+#                     else:
+#                         current_app.logger.error(f"✗ Session NOT found in MongoDB after save! SID: {session_sid_short}")
+#                 else:
+#                     current_app.logger.warning("⚠ Session has no sid attribute, skipping MongoDB verification")
+#             else:
+#                 current_app.logger.warning("⚠ SESSION_MONGODB not configured, skipping verification")
+#         except AttributeError as e:
+#             current_app.logger.error(f"✗ Config access error during MongoDB verification: {e}")
+#         except Exception as e:
+#             current_app.logger.error(f"✗ Unexpected error during MongoDB verification: {type(e).__name__}: {e}")
+        
+#         # Log the response headers to verify Set-Cookie is present
+#         all_set_cookie_headers = response.headers.getlist('Set-Cookie') if hasattr(response.headers, 'getlist') else []
+#         current_app.logger.info(f"📤 Response Set-Cookie headers count: {len(all_set_cookie_headers)}")
+#         for idx, cookie_header in enumerate(all_set_cookie_headers):
+#             current_app.logger.info(f"   [{idx}] {cookie_header[:150]}")
+        
+#         current_app.logger.info(f"Google OAuth: Redirecting to {final_redirect}")
+#         return response
+
+#     except Exception as e:
+#         current_app.logger.error(f"Error in Google callback: {str(e)}")
+#         import traceback
+#         current_app.logger.error(traceback.format_exc())
+#         session.clear()
+        
+#         # Use the redirect_url defined at the top
+#         return redirect(f"{redirect_url}?error=auth_failed&message={str(e)}")
+
 def handle_google_callback(google, users_collection, initialize_new_user_dashboard_stats):
+    """
+    UPDATED: Google OAuth callback with Partitioned cookie support
+    """
     current_app.logger.info("=== GOOGLE CALLBACK START ===")
     current_app.logger.info(f"Request cookies: {list(request.cookies.keys())}")
     current_app.logger.info(f"Session contains user: {'user' in session}")
@@ -770,7 +1044,7 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
     
     current_app.logger.info(f"Final session state keys: {[k for k in session.keys() if k.startswith('_state_')]}")
     
-    # Get redirect URL from session (set in main.py /login endpoint)
+    # Get redirect URL from session
     redirect_url = session.get('redirect_url', 'https://mentormate-client.vercel.app/google-callback')
     
     try:
@@ -797,7 +1071,7 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         user_data = {
             "name": user_info.get("name", "User"),
             "email": user_info["email"],
-            "picture": get_google_profile_picture(google, token) if not user_info.get("picture") else user_info.get("picture", "/static/default-profile.png"),
+            "picture": user_info.get("picture", "/static/default-profile.png"),
             "last_login": datetime.now(timezone.utc),
             "auth_method": "google"
         }
@@ -813,17 +1087,16 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         if result.upserted_id:
             initialize_new_user_dashboard_stats(user_data["email"])
 
-        # Fetch the full user record (including premium status)
+        # Fetch the full user record
         db_user = users_collection.find_one({"email": user_data["email"]})
 
-        # CRITICAL: Clear any old session data and regenerate session ID
-        # This prevents issues when browser sends multiple session cookies
+        # CRITICAL: Clear any old session data
         session.clear()
         
         # Create new session
-        session_id = AuthUtils.create_user_session(user_data["email"]) 
+        session_id = AuthUtils.create_user_session(user_data["email"])
 
-        # Set session, include premium status if present
+        # Set session data
         session.permanent = True
         session['user'] = {
             'email': db_user['email'],
@@ -835,111 +1108,59 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         session['session_id'] = session_id
         session.modified = True
         
-        # Log session creation for debugging
         current_app.logger.info(f"Google OAuth: Session created for {db_user['email']}")
-        current_app.logger.info(f"Session data: user={session.get('user')}, session_id={session.get('session_id')}")
-        current_app.logger.info(f"Session.permanent: {session.permanent}")
-        current_app.logger.info(f"Session.modified: {session.modified}")
         
-        # Create session token for fallback (in case cookies are blocked)
+        # Create session token for fallback
         session_token = session.sid if hasattr(session, 'sid') else str(uuid.uuid4())
         
-        # Redirect to frontend with user info and session token
+        # Build redirect URL
         from urllib.parse import quote
         redirect_params = f"email={quote(db_user['email'])}&name={quote(db_user['name'])}&picture={quote(db_user.get('picture', '/static/default-profile.png'))}&session_token={session_token}"
         final_redirect = f"{redirect_url}?{redirect_params}"
         
-        # CRITICAL FIX: Use server-side 302 redirect BEFORE creating response
-        # This preserves the Set-Cookie header in the HTTP response
-        # JavaScript redirects lose cookies because they're client-side navigation
-        current_app.logger.info(f"Google OAuth: Using 302 redirect to preserve Set-Cookie")
-        response = redirect(final_redirect, code=302)
+        # Create 302 redirect response
+        current_app.logger.info(f"Google OAuth: Using 302 redirect")
+        response = make_response(redirect(final_redirect, code=302))
         
-        # CRITICAL: Mark session as modified and force save
+        # CRITICAL: Force session save to MongoDB FIRST
         session.modified = True
         session.permanent = True
-        
-        # Log what we're about to save (safe logging without slicing None values)
-        session_sid = getattr(session, 'sid', None)
-        session_sid_str = (str(session_sid)[:20] + '...' if session_sid else 'NO SID')
-        current_app.logger.info(f"🔍 DEBUG: Session data before save:")
-        current_app.logger.info(f"   - session.sid: {session_sid_str}")
-        
-        user_email = session.get('user', {}).get('email', 'NO EMAIL')
-        # Only log email if it's not the default (safer than logging full user object)
-        current_app.logger.info(f"   - session.user.email: {user_email if user_email != 'NO EMAIL' else 'NONE'}")
-        current_app.logger.info(f"   - session.permanent: {session.permanent}")
-        current_app.logger.info(f"   - session.modified: {session.modified}")
-        
-        # Force session to be saved to MongoDB with proper cookie attributes
         current_app.session_interface.save_session(current_app, session, response)
         
-        # CRITICAL: Verify Set-Cookie was added to response, if not add it manually
-        # This ensures the cookie reaches the browser even if Flask-Session fails
-        if not response.headers.get('Set-Cookie'):
-            current_app.logger.warning("⚠ Set-Cookie not auto-generated by Flask-Session, adding manually")
-            # Generate proper cookie with all required attributes
-            cookie_name = current_app.config.get('SESSION_COOKIE_NAME', 'google-login-session')
-            if hasattr(session, 'sid'):
-                session_value = session.sid
-            else:
-                session_value = str(uuid.uuid4())
-            
-            response.set_cookie(
-                cookie_name,
-                value=session_value,
-                max_age=3600,  # 1 hour
-                secure=True,
-                httponly=True,
-                samesite='None',
-                path='/'
-            )
-            current_app.logger.info(f"✓ Manually set cookie: {cookie_name} = {session_value[:20]}...")
-        else:
-            set_cookie = response.headers.get('Set-Cookie')
-            current_app.logger.info(f"✓ Set-Cookie auto-generated: {set_cookie[:200]}")
-            # Verify SameSite and Secure flags are present
-            if 'SameSite=None' in set_cookie and 'Secure' in set_cookie:
-                current_app.logger.info("✓✓ Set-Cookie has SameSite=None and Secure flags")
-            else:
-                current_app.logger.warning(f"⚠ Set-Cookie missing required flags. Full: {set_cookie}")
+        # NEW: Add Partitioned attribute for Safari/Brave
+        response = add_partitioned_to_response(response)
         
-        # DIAGNOSTIC: Verify session was saved to MongoDB (safe implementation)
+        # Verify and log cookie headers
+        set_cookie_headers = response.headers.getlist('Set-Cookie')
+        current_app.logger.info(f"📤 Response Set-Cookie headers: {len(set_cookie_headers)}")
+        
+        for idx, cookie in enumerate(set_cookie_headers):
+            current_app.logger.info(f"   [{idx}] {cookie[:200]}")
+            
+            # Check for required attributes
+            if 'Partitioned' in cookie:
+                current_app.logger.info("   ✓ Has Partitioned attribute")
+            if 'SameSite=None' in cookie and 'Secure' in cookie:
+                current_app.logger.info("   ✓ Has SameSite=None and Secure")
+        
+        # Verify MongoDB save
         try:
-            # Get MongoDB client and verify session was saved
             mongo_client = current_app.config.get('SESSION_MONGODB')
             db_name = current_app.config.get('SESSION_MONGODB_DB', 'geotech_db')
             collection_name = current_app.config.get('SESSION_MONGODB_COLLECT', 'flask_sessions')
             
-            if mongo_client:
+            if mongo_client and hasattr(session, 'sid'):
                 session_collection = mongo_client[db_name][collection_name]
+                saved_session = session_collection.find_one({'id': session.sid})
                 
-                # Only check if session has a sid attribute
-                if hasattr(session, 'sid') and session.sid:
-                    session_sid = str(session.sid)  # Ensure it's a string before slicing
-                    session_sid_short = session_sid[:20] + '...' if len(session_sid) > 20 else session_sid
-                    
-                    saved_session = session_collection.find_one({'id': session.sid})
-                    if saved_session:
-                        current_app.logger.info(f"✓ Session VERIFIED in MongoDB: {session_sid_short}")
-                    else:
-                        current_app.logger.error(f"✗ Session NOT found in MongoDB after save! SID: {session_sid_short}")
+                if saved_session:
+                    current_app.logger.info(f"✓ Session verified in MongoDB")
                 else:
-                    current_app.logger.warning("⚠ Session has no sid attribute, skipping MongoDB verification")
-            else:
-                current_app.logger.warning("⚠ SESSION_MONGODB not configured, skipping verification")
-        except AttributeError as e:
-            current_app.logger.error(f"✗ Config access error during MongoDB verification: {e}")
+                    current_app.logger.error(f"✗ Session NOT in MongoDB!")
         except Exception as e:
-            current_app.logger.error(f"✗ Unexpected error during MongoDB verification: {type(e).__name__}: {e}")
+            current_app.logger.error(f"MongoDB verification failed: {e}")
         
-        # Log the response headers to verify Set-Cookie is present
-        all_set_cookie_headers = response.headers.getlist('Set-Cookie') if hasattr(response.headers, 'getlist') else []
-        current_app.logger.info(f"📤 Response Set-Cookie headers count: {len(all_set_cookie_headers)}")
-        for idx, cookie_header in enumerate(all_set_cookie_headers):
-            current_app.logger.info(f"   [{idx}] {cookie_header[:150]}")
-        
-        current_app.logger.info(f"Google OAuth: Redirecting to {final_redirect}")
+        current_app.logger.info(f"Redirecting to {final_redirect[:100]}...")
         return response
 
     except Exception as e:
@@ -947,8 +1168,6 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         import traceback
         current_app.logger.error(traceback.format_exc())
         session.clear()
-        
-        # Use the redirect_url defined at the top
         return redirect(f"{redirect_url}?error=auth_failed&message={str(e)}")
     
 def get_google_profile_picture(google, token):
