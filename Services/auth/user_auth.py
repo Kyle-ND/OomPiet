@@ -794,7 +794,7 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
     current_app.logger.info(f"Final session state keys: {[k for k in session.keys() if k.startswith('_state_')]}")
     
     # Get redirect URL from session
-    redirect_url = session.get('redirect_url', 'https://mentormate-client.vercel.app/google-callback')
+    redirect_url = 'https://mentormate.co.za/google-callback'
     
     try:
         # Authlib automatically verifies state from session
