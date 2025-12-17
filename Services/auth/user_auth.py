@@ -635,102 +635,11 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         
         final_redirect = f"{redirect_url}?{urlencode(params)}"
         
-        # Create HTML page that detects cookie blocking and provides instructions
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Redirecting...</title>
-            <meta charset="UTF-8">
-            <style>
-                body {{
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                    max-width: 600px;
-                    margin: 50px auto;
-                    padding: 20px;
-                    text-align: center;
-                }}
-                .brave-instructions {{
-                    display: none;
-                    background: #fff3cd;
-                    border: 1px solid #ffc107;
-                    padding: 20px;
-                    border-radius: 8px;
-                    margin-top: 20px;
-                    text-align: left;
-                }}
-                .brave-instructions h3 {{
-                    margin-top: 0;
-                    color: #856404;
-                }}
-                .brave-instructions ol {{
-                    padding-left: 20px;
-                }}
-                .brave-instructions li {{
-                    margin: 10px 0;
-                }}
-            </style>
-            <script>
-                // Trigger Brave's cookie permission popup by accessing cookies
-                function triggerCookiePermissionAndRedirect() {{
-                    try {{
-                        // Attempt to read and write cookies - this triggers Brave's permission popup
-                        var existingCookies = document.cookie;
-                        document.cookie = "auth_check=1; path=/; SameSite=None; Secure";
-                        
-                        // Wait a moment for potential popup, then redirect
-                        setTimeout(function() {{
-                            // Check if cookies were successfully set
-                            var cookiesEnabled = document.cookie.indexOf("auth_check") !== -1;
-                            
-                            if (!cookiesEnabled) {{
-                                // Show manual instructions as fallback
-                                document.getElementById('brave-message').style.display = 'block';
-                                // Redirect after showing instructions
-                                setTimeout(function() {{
-                                    window.location.href = "{final_redirect}";
-                                }}, 5000);
-                            }} else {{
-                                // Cookies work, redirect immediately
-                                window.location.href = "{final_redirect}";
-                            }}
-                        }}, 500);
-                    }} catch (e) {{
-                        // If cookie access fails, show instructions
-                        document.getElementById('brave-message').style.display = 'block';
-                        setTimeout(function() {{
-                            window.location.href = "{final_redirect}";
-                        }}, 5000);
-                    }}
-                }}
-                
-                // Run immediately when page loads to trigger popup ASAP
-                triggerCookiePermissionAndRedirect();
-            </script>
-        </head>
-        <body>
-            <h2>🎉 Authentication Successful!</h2>
-            <p>Redirecting you back to MentorMate...</p>
-            
-            <div id="brave-message" class="brave-instructions">
-                <h3>⚠️ Cookie Settings Required for Brave Browser</h3>
-                <p>Brave browser blocks third-party cookies by default. To use MentorMate, please:</p>
-                <ol>
-                    <li>Click the <strong>Brave Shields</strong> icon (lion icon) in the address bar</li>
-                    <li>Click on <strong>"Advanced View"</strong> or <strong>"Advanced Controls"</strong></li>
-                    <li>Under <strong>"Cross-site cookies blocked"</strong>, select <strong>"Allow all cookies"</strong></li>
-                    <li>Refresh the page or log in again</li>
-                </ol>
-                <p><strong>Or:</strong> Go to <code>brave://settings/cookies</code> and add <code>oompiet-production.up.railway.app</code> to allowed sites.</p>
-                <p style="margin-top: 15px;">You'll be redirected automatically in 5 seconds...</p>
-            </div>
-        </body>
-        </html>
-        """
-        
-        # Create response with HTML
-        response = make_response(html_content, 200)
-        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        # CRITICAL FIX: Use server-side 302 redirect BEFORE creating response
+        # This preserves the Set-Cookie header in the HTTP response
+        # JavaScript redirects lose cookies because they're client-side navigation
+        current_app.logger.info(f"Microsoft OAuth: Using 302 redirect to preserve Set-Cookie")
+        response = redirect(final_redirect, code=302)
         
         # CRITICAL: Mark session as modified and force save
         session.modified = True
@@ -940,102 +849,11 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         redirect_params = f"email={quote(db_user['email'])}&name={quote(db_user['name'])}&picture={quote(db_user.get('picture', '/static/default-profile.png'))}&session_token={session_token}"
         final_redirect = f"{redirect_url}?{redirect_params}"
         
-        # Create HTML page that triggers Brave's cookie permission popup
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Redirecting...</title>
-            <meta charset="UTF-8">
-            <style>
-                body {{
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                    max-width: 600px;
-                    margin: 50px auto;
-                    padding: 20px;
-                    text-align: center;
-                }}
-                .brave-instructions {{
-                    display: none;
-                    background: #fff3cd;
-                    border: 1px solid #ffc107;
-                    padding: 20px;
-                    border-radius: 8px;
-                    margin-top: 20px;
-                    text-align: left;
-                }}
-                .brave-instructions h3 {{
-                    margin-top: 0;
-                    color: #856404;
-                }}
-                .brave-instructions ol {{
-                    padding-left: 20px;
-                }}
-                .brave-instructions li {{
-                    margin: 10px 0;
-                }}
-            </style>
-            <script>
-                // Trigger Brave's cookie permission popup by accessing cookies
-                function triggerCookiePermissionAndRedirect() {{
-                    try {{
-                        // Attempt to read and write cookies - this triggers Brave's permission popup
-                        var existingCookies = document.cookie;
-                        document.cookie = "auth_check=1; path=/; SameSite=None; Secure";
-                        
-                        // Wait a moment for potential popup, then redirect
-                        setTimeout(function() {{
-                            // Check if cookies were successfully set
-                            var cookiesEnabled = document.cookie.indexOf("auth_check") !== -1;
-                            
-                            if (!cookiesEnabled) {{
-                                // Show manual instructions as fallback
-                                document.getElementById('brave-message').style.display = 'block';
-                                // Redirect after showing instructions
-                                setTimeout(function() {{
-                                    window.location.href = "{final_redirect}";
-                                }}, 5000);
-                            }} else {{
-                                // Cookies work, redirect immediately
-                                window.location.href = "{final_redirect}";
-                            }}
-                        }}, 500);
-                    }} catch (e) {{
-                        // If cookie access fails, show instructions
-                        document.getElementById('brave-message').style.display = 'block';
-                        setTimeout(function() {{
-                            window.location.href = "{final_redirect}";
-                        }}, 5000);
-                    }}
-                }}
-                
-                // Run immediately when page loads to trigger popup ASAP
-                triggerCookiePermissionAndRedirect();
-            </script>
-        </head>
-        <body>
-            <h2>🎉 Authentication Successful!</h2>
-            <p>Redirecting you back to MentorMate...</p>
-            
-            <div id="brave-message" class="brave-instructions">
-                <h3>⚠️ Cookie Settings Required for Brave Browser</h3>
-                <p>Brave browser blocks third-party cookies by default. To use MentorMate, please:</p>
-                <ol>
-                    <li>Click the <strong>Brave Shields</strong> icon (lion icon) in the address bar</li>
-                    <li>Click on <strong>"Advanced View"</strong> or <strong>"Advanced Controls"</strong></li>
-                    <li>Under <strong>"Cross-site cookies blocked"</strong>, select <strong>"Allow all cookies"</strong></li>
-                    <li>Refresh the page or log in again</li>
-                </ol>
-                <p><strong>Or:</strong> Go to <code>brave://settings/cookies</code> and add <code>oompiet-production.up.railway.app</code> to allowed sites.</p>
-                <p style="margin-top: 15px;">You'll be redirected automatically in 5 seconds...</p>
-            </div>
-        </body>
-        </html>
-        """
-        
-        # Create response with HTML
-        response = make_response(html_content, 200)
-        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        # CRITICAL FIX: Use server-side 302 redirect BEFORE creating response
+        # This preserves the Set-Cookie header in the HTTP response
+        # JavaScript redirects lose cookies because they're client-side navigation
+        current_app.logger.info(f"Google OAuth: Using 302 redirect to preserve Set-Cookie")
+        response = redirect(final_redirect, code=302)
         
         # CRITICAL: Mark session as modified and force save
         session.modified = True
