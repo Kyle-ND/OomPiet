@@ -57,11 +57,11 @@ PAYFAST_SANDBOX = os.getenv('PAYFAST_SANDBOX', 'true').lower() == 'true'
 app = Flask(__name__, static_folder='static')
 
 # CRITICAL: CORS configuration for cross-origin requests from Vercel
+# Safari requires exact origin matching - no wildcard patterns
 CORS(app, 
      origins=[
          'https://mentormate-client.vercel.app',
-         'http://localhost:3000',
-         'https://*.vercel.app'  # Allow Vercel preview deployments
+         'http://localhost:3000'
      ],
      supports_credentials=True,
      allow_headers=['Content-Type', 'Authorization', 'Accept'],
@@ -91,7 +91,8 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Required for cross-site cookie
 app.config['SESSION_COOKIE_SECURE'] = True  # Required for production HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_DOMAIN'] = None  # Let browser handle domain
-app.config['SESSION_COOKIE_PARTITIONED'] = True  # Allow cross-site cookies in modern browsers
+# CRITICAL FIX: Removed PARTITIONED - conflicts with SameSite=None in Safari
+# Partitioned is for Chrome Privacy Sandbox, breaks Safari compatibility
 
 # Initialize Flask-Session (server-side sessions)
 Session(app)
