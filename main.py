@@ -301,6 +301,13 @@ def check_session():
             except Exception as e:
                 app.logger.error(f"Error checking alternate cookies: {e}")
     
+    # Parse name into firstName/lastName for frontend compatibility
+    if is_authenticated and user_data and isinstance(user_data, dict):
+        name = user_data.get('name', '')
+        name_parts = name.split(' ', 1)
+        user_data['firstName'] = name_parts[0] if name_parts else ''
+        user_data['lastName'] = name_parts[1] if len(name_parts) > 1 else ''
+    
     response_data = {
         'authenticated': is_authenticated,
         'user': user_data
@@ -503,6 +510,7 @@ def check_upload_access():
     return jsonify({'uploadAccess': False})
 
 @app.route('/logout', methods=['POST', 'GET'])
+@app.route('/signout', methods=['POST', 'GET'])  # Support both endpoints for frontend compatibility
 def logout():
     user_email = session.get('user', {}).get('email')
     if user_email:
