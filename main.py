@@ -261,9 +261,17 @@ def signup():
 @app.route('/api/check-session', methods=['GET'])
 def check_session():
     """Check if user has active session"""
-    # DIAGNOSTIC LOGGING
+    # DIAGNOSTIC LOGGING - Log only specific safe headers, not all headers
     app.logger.info(f"🔍 check-session called")
-    app.logger.info(f"   - Request headers: {dict(request.headers)}")
+    # Log only safe headers (not Authorization, API keys, tokens, etc.)
+    safe_headers = {
+        'Cookie': request.headers.get('Cookie', 'NONE'),
+        'User-Agent': request.headers.get('User-Agent', 'NONE')
+    }
+    # Truncate cookie header for readability
+    if safe_headers['Cookie'] != 'NONE':
+        safe_headers['Cookie'] = safe_headers['Cookie'][:100] + '...' if len(safe_headers['Cookie']) > 100 else safe_headers['Cookie']
+    app.logger.info(f"   - Request headers (safe): {safe_headers}")
     
     # CRITICAL FIX: Handle multiple cookies with same name
     # Browser may send multiple 'google-login-session' cookies
@@ -283,7 +291,9 @@ def check_session():
     is_authenticated = 'user' in session
     user_data = session.get('user', None)
     app.logger.info(f"   - Flask session has 'user': {is_authenticated}")
-    app.logger.info(f"   - User data: {user_data}")
+    # Log only that user data is present, not the actual data (privacy/security)
+    is_user_present = bool(user_data)
+    app.logger.info(f"   - User data present: {is_user_present}")
     
     # CRITICAL FIX: If current session is empty, try other cookies
     if not is_authenticated and len(all_session_cookies) > 1:
