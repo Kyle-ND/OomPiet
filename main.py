@@ -261,19 +261,29 @@ def signup():
 @app.route('/api/check-session', methods=['GET'])
 def check_session():
     """Check if user has active session"""
+    # DIAGNOSTIC LOGGING
+    app.logger.info(f"🔍 check-session called")
+    app.logger.info(f"   - Request headers: {dict(request.headers)}")
+    
     # CRITICAL FIX: Handle multiple cookies with same name
     # Browser may send multiple 'google-login-session' cookies
     # We need to try ALL of them, not just the first one Flask loads
     cookie_header = request.headers.get('Cookie', '')
+    app.logger.info(f"   - Cookie header: {cookie_header[:200] if cookie_header else 'EMPTY'}")
+    
     cookie_name = app.config['SESSION_COOKIE_NAME']
+    app.logger.info(f"   - Cookie name expected: {cookie_name}")
     
     # Extract all cookies with our session name
     import re
     pattern = rf'{cookie_name}=([^;]+)'
     all_session_cookies = re.findall(pattern, cookie_header)
+    app.logger.info(f"   - Found {len(all_session_cookies)} cookies named {cookie_name}")
     
     is_authenticated = 'user' in session
     user_data = session.get('user', None)
+    app.logger.info(f"   - Flask session has 'user': {is_authenticated}")
+    app.logger.info(f"   - User data: {user_data}")
     
     # CRITICAL FIX: If current session is empty, try other cookies
     if not is_authenticated and len(all_session_cookies) > 1:

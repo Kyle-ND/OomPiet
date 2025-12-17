@@ -992,6 +992,13 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         session.modified = True
         session.permanent = True
         
+        # Log what we're about to save
+        current_app.logger.info(f"🔍 DEBUG: Session data before save:")
+        current_app.logger.info(f"   - session.sid: {getattr(session, 'sid', 'NO SID')[:20] if hasattr(session, 'sid') else 'NO SID'}")
+        current_app.logger.info(f"   - session.user: {session.get('user', {}).get('email', 'NO EMAIL')}")
+        current_app.logger.info(f"   - session.permanent: {session.permanent}")
+        current_app.logger.info(f"   - session.modified: {session.modified}")
+        
         # Force session to be saved to MongoDB with proper cookie attributes
         current_app.session_interface.save_session(current_app, session, response)
         
@@ -1015,15 +1022,27 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
                 samesite='None',
                 path='/'
             )
-            current_app.logger.info(f"✓ Manually set cookie: {cookie_name}")
+            current_app.logger.info(f"✓ Manually set cookie: {cookie_name} = {session_value[:20]}...")
         else:
             set_cookie = response.headers.get('Set-Cookie')
-            current_app.logger.info(f"✓ Set-Cookie auto-generated: {set_cookie[:150]}")
+            current_app.logger.info(f"✓ Set-Cookie auto-generated: {set_cookie[:200]}")
             # Verify SameSite and Secure flags are present
             if 'SameSite=None' in set_cookie and 'Secure' in set_cookie:
                 current_app.logger.info("✓✓ Set-Cookie has SameSite=None and Secure flags")
             else:
                 current_app.logger.warning(f"⚠ Set-Cookie missing required flags. Full: {set_cookie}")
+        
+        # DIAGNOSTIC: Verify session was saved to MongoDB
+        try:
+            session_collection = current_app.config.get('SESSION_MONGODB', {}).get(current_app.config.get('SESSION_MONGODB_DB', 'geotech_db')).get(current_app.config.get('SESSION_MONGODB_COLLECT', 'flask_sessions'))
+            if session_collection and hasattr(session, 'sid'):
+                saved_session = session_collection.find_one({'id': session.sid})
+                if saved_session:
+                    current_app.logger.info(f"✓ Session VERIFIED in MongoDB: {session.sid[:20]}...")
+                else:
+                    current_app.logger.error(f"✗ Session NOT found in MongoDB after save! SID: {session.sid[:20]}...")
+        except Exception as e:
+            current_app.logger.warning(f"Could not verify MongoDB save: {e}")
         
         current_app.logger.info(f"Google OAuth: Redirecting to {final_redirect}")
         return response
