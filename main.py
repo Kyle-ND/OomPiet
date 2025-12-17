@@ -971,7 +971,7 @@ def get_specific_session(user_id, conversation_id):
                 "answer": msg.get("answer"),
                 "timestamp": msg.get("timestamp").isoformat() if isinstance(msg.get("timestamp"), datetime) else (str(msg.get("timestamp")) if msg.get("timestamp") else None),
                 "model_used": msg.get("model_used"),
-                "is_new_conversation": msg.get("is_new_conversation),
+                "is_new_conversation": msg.get("is_new_conversation"),
                 "role": msg.get("role")
             }
             
