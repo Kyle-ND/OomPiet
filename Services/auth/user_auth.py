@@ -620,6 +620,8 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         # Log session creation for debugging
         current_app.logger.info(f"Microsoft OAuth: Session created for {db_user['email']}")
         current_app.logger.info(f"Session data: user={session.get('user')}, session_id={session.get('session_id')}")
+        current_app.logger.info(f"Session.permanent: {session.permanent}")
+        current_app.logger.info(f"Session.modified: {session.modified}")
         
         params = {
             "email": db_user["email"],
@@ -734,6 +736,18 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         session.modified = True
         session.permanent = True
         
+        # Log what we're about to save (safe logging without slicing None values)
+        session_sid = getattr(session, 'sid', None)
+        session_sid_str = (str(session_sid)[:20] + '...' if session_sid else 'NO SID')
+        current_app.logger.info(f"🔍 DEBUG: Session data before save:")
+        current_app.logger.info(f"   - session.sid: {session_sid_str}")
+        
+        user_email = session.get('user', {}).get('email', 'NO EMAIL')
+        # Only log email if it's not the default (safer than logging full user object)
+        current_app.logger.info(f"   - session.user.email: {user_email if user_email != 'NO EMAIL' else 'NONE'}")
+        current_app.logger.info(f"   - session.permanent: {session.permanent}")
+        current_app.logger.info(f"   - session.modified: {session.modified}")
+        
         # Force session to be saved to MongoDB with proper cookie attributes
         current_app.session_interface.save_session(current_app, session, response)
         
@@ -766,6 +780,41 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
                 current_app.logger.info("✓✓ Set-Cookie has SameSite=None and Secure flags")
             else:
                 current_app.logger.warning(f"⚠ Set-Cookie missing required flags. Full: {set_cookie}")
+        
+        # DIAGNOSTIC: Verify session was saved to MongoDB (safe implementation)
+        try:
+            # Get MongoDB client and verify session was saved
+            mongo_client = current_app.config.get('SESSION_MONGODB')
+            db_name = current_app.config.get('SESSION_MONGODB_DB', 'geotech_db')
+            collection_name = current_app.config.get('SESSION_MONGODB_COLLECT', 'flask_sessions')
+            
+            if mongo_client:
+                session_collection = mongo_client[db_name][collection_name]
+                
+                # Only check if session has a sid attribute
+                if hasattr(session, 'sid') and session.sid:
+                    session_sid = str(session.sid)  # Ensure it's a string before slicing
+                    session_sid_short = session_sid[:20] + '...' if len(session_sid) > 20 else session_sid
+                    
+                    saved_session = session_collection.find_one({'id': session.sid})
+                    if saved_session:
+                        current_app.logger.info(f"✓ Session VERIFIED in MongoDB: {session_sid_short}")
+                    else:
+                        current_app.logger.error(f"✗ Session NOT found in MongoDB after save! SID: {session_sid_short}")
+                else:
+                    current_app.logger.warning("⚠ Session has no sid attribute, skipping MongoDB verification")
+            else:
+                current_app.logger.warning("⚠ SESSION_MONGODB not configured, skipping verification")
+        except AttributeError as e:
+            current_app.logger.error(f"✗ Config access error during MongoDB verification: {e}")
+        except Exception as e:
+            current_app.logger.error(f"✗ Unexpected error during MongoDB verification: {type(e).__name__}: {e}")
+        
+        # Log the response headers to verify Set-Cookie is present
+        all_set_cookie_headers = response.headers.getlist('Set-Cookie') if hasattr(response.headers, 'getlist') else []
+        current_app.logger.info(f"📤 Response Set-Cookie headers count: {len(all_set_cookie_headers)}")
+        for idx, cookie_header in enumerate(all_set_cookie_headers):
+            current_app.logger.info(f"   [{idx}] {cookie_header[:150]}")
         
         current_app.logger.info(f"Microsoft OAuth: Redirecting to {final_redirect}")
         return response
@@ -992,6 +1041,18 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         session.modified = True
         session.permanent = True
         
+        # Log what we're about to save (safe logging without slicing None values)
+        session_sid = getattr(session, 'sid', None)
+        session_sid_str = (str(session_sid)[:20] + '...' if session_sid else 'NO SID')
+        current_app.logger.info(f"🔍 DEBUG: Session data before save:")
+        current_app.logger.info(f"   - session.sid: {session_sid_str}")
+        
+        user_email = session.get('user', {}).get('email', 'NO EMAIL')
+        # Only log email if it's not the default (safer than logging full user object)
+        current_app.logger.info(f"   - session.user.email: {user_email if user_email != 'NO EMAIL' else 'NONE'}")
+        current_app.logger.info(f"   - session.permanent: {session.permanent}")
+        current_app.logger.info(f"   - session.modified: {session.modified}")
+        
         # Force session to be saved to MongoDB with proper cookie attributes
         current_app.session_interface.save_session(current_app, session, response)
         
@@ -1015,15 +1076,50 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
                 samesite='None',
                 path='/'
             )
-            current_app.logger.info(f"✓ Manually set cookie: {cookie_name}")
+            current_app.logger.info(f"✓ Manually set cookie: {cookie_name} = {session_value[:20]}...")
         else:
             set_cookie = response.headers.get('Set-Cookie')
-            current_app.logger.info(f"✓ Set-Cookie auto-generated: {set_cookie[:150]}")
+            current_app.logger.info(f"✓ Set-Cookie auto-generated: {set_cookie[:200]}")
             # Verify SameSite and Secure flags are present
             if 'SameSite=None' in set_cookie and 'Secure' in set_cookie:
                 current_app.logger.info("✓✓ Set-Cookie has SameSite=None and Secure flags")
             else:
                 current_app.logger.warning(f"⚠ Set-Cookie missing required flags. Full: {set_cookie}")
+        
+        # DIAGNOSTIC: Verify session was saved to MongoDB (safe implementation)
+        try:
+            # Get MongoDB client and verify session was saved
+            mongo_client = current_app.config.get('SESSION_MONGODB')
+            db_name = current_app.config.get('SESSION_MONGODB_DB', 'geotech_db')
+            collection_name = current_app.config.get('SESSION_MONGODB_COLLECT', 'flask_sessions')
+            
+            if mongo_client:
+                session_collection = mongo_client[db_name][collection_name]
+                
+                # Only check if session has a sid attribute
+                if hasattr(session, 'sid') and session.sid:
+                    session_sid = str(session.sid)  # Ensure it's a string before slicing
+                    session_sid_short = session_sid[:20] + '...' if len(session_sid) > 20 else session_sid
+                    
+                    saved_session = session_collection.find_one({'id': session.sid})
+                    if saved_session:
+                        current_app.logger.info(f"✓ Session VERIFIED in MongoDB: {session_sid_short}")
+                    else:
+                        current_app.logger.error(f"✗ Session NOT found in MongoDB after save! SID: {session_sid_short}")
+                else:
+                    current_app.logger.warning("⚠ Session has no sid attribute, skipping MongoDB verification")
+            else:
+                current_app.logger.warning("⚠ SESSION_MONGODB not configured, skipping verification")
+        except AttributeError as e:
+            current_app.logger.error(f"✗ Config access error during MongoDB verification: {e}")
+        except Exception as e:
+            current_app.logger.error(f"✗ Unexpected error during MongoDB verification: {type(e).__name__}: {e}")
+        
+        # Log the response headers to verify Set-Cookie is present
+        all_set_cookie_headers = response.headers.getlist('Set-Cookie') if hasattr(response.headers, 'getlist') else []
+        current_app.logger.info(f"📤 Response Set-Cookie headers count: {len(all_set_cookie_headers)}")
+        for idx, cookie_header in enumerate(all_set_cookie_headers):
+            current_app.logger.info(f"   [{idx}] {cookie_header[:150]}")
         
         current_app.logger.info(f"Google OAuth: Redirecting to {final_redirect}")
         return response

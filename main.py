@@ -261,19 +261,47 @@ def signup():
 @app.route('/api/check-session', methods=['GET'])
 def check_session():
     """Check if user has active session"""
+    # DIAGNOSTIC LOGGING - Log only specific safe headers, not all headers
+    app.logger.info(f"🔍 check-session called")
+    
+    # Log what cookies the browser sent in request
+    app.logger.info(f"   - request.cookies keys: {list(request.cookies.keys())}")
+    app.logger.info(f"   - request.cookies: {dict(request.cookies)}")
+    
+    # Log only safe headers (not Authorization, API keys, tokens, etc.)
+    safe_headers = {
+        'Cookie': request.headers.get('Cookie', 'NONE'),
+        'User-Agent': request.headers.get('User-Agent', 'NONE')
+    }
+    # Truncate cookie header for readability
+    if safe_headers['Cookie'] != 'NONE':
+        safe_headers['Cookie'] = safe_headers['Cookie'][:100] + '...' if len(safe_headers['Cookie']) > 100 else safe_headers['Cookie']
+    app.logger.info(f"   - Request headers (safe): {safe_headers}")
+    
     # CRITICAL FIX: Handle multiple cookies with same name
     # Browser may send multiple 'google-login-session' cookies
     # We need to try ALL of them, not just the first one Flask loads
     cookie_header = request.headers.get('Cookie', '')
+    app.logger.info(f"   - Cookie header: {cookie_header[:200] if cookie_header else 'EMPTY'}")
+    
     cookie_name = app.config['SESSION_COOKIE_NAME']
+    app.logger.info(f"   - Cookie name expected: {cookie_name}")
+    app.logger.info(f"   - SESSION_COOKIE_NAME config value: {cookie_name}")
     
     # Extract all cookies with our session name
     import re
     pattern = rf'{cookie_name}=([^;]+)'
     all_session_cookies = re.findall(pattern, cookie_header)
+    app.logger.info(f"   - Found {len(all_session_cookies)} cookies named {cookie_name}")
     
     is_authenticated = 'user' in session
     user_data = session.get('user', None)
+    app.logger.info(f"   - Flask session has 'user': {is_authenticated}")
+    app.logger.info(f"   - Flask session keys: {list(session.keys())}")
+    app.logger.info(f"   - Flask session.sid: {getattr(session, 'sid', 'NO SID')}")
+    # Log only that user data is present, not the actual data (privacy/security)
+    is_user_present = bool(user_data)
+    app.logger.info(f"   - User data present: {is_user_present}")
     
     # CRITICAL FIX: If current session is empty, try other cookies
     if not is_authenticated and len(all_session_cookies) > 1:
@@ -390,7 +418,7 @@ def login():
             session_doc = {
                 'id': session_id,
                 'val': pickle.dumps(dict(session)),
-                'expiration': datetime.utcnow() + timedelta(minutes=60)
+                'expiration': datetime.now(datetime.UTC) + timedelta(minutes=60)
             }
             
             # Use replace_one with upsert to ensure write completes
@@ -460,7 +488,7 @@ def microsoft_login():
             session_doc = {
                 'id': session_id,
                 'val': pickle.dumps(dict(session)),
-                'expiration': datetime.utcnow() + timedelta(minutes=60)
+                'expiration': datetime.now(datetime.UTC) + timedelta(minutes=60)
             }
             
             # Use replace_one with upsert to ensure write completes
