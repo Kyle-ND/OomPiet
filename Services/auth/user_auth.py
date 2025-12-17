@@ -729,16 +729,25 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         response = make_response(html_content, 200)
         response.headers['Content-Type'] = 'text/html; charset=utf-8'
         
+        # CRITICAL: Save session BEFORE creating response to ensure Set-Cookie is generated
+        session.modified = True
+        
         # Force session to be saved to MongoDB
         current_app.session_interface.save_session(current_app, session, response)
         
-        # Manually add Partitioned attribute to Set-Cookie header for cross-site cookies
-        set_cookie_header = response.headers.get('Set-Cookie')
-        if set_cookie_header and 'Partitioned' not in set_cookie_header:
-            response.headers['Set-Cookie'] = set_cookie_header + '; Partitioned'
-            current_app.logger.info("Added Partitioned attribute to cookie")
+        # CRITICAL FIX: Do NOT add Partitioned attribute
+        # Partitioned conflicts with SameSite=None in Safari - breaks login
+        # Flask-Session already sets SameSite=None; Secure; HttpOnly via config
         
-        current_app.logger.info(f"Set-Cookie header: {response.headers.get('Set-Cookie')[:200] if response.headers.get('Set-Cookie') else 'NOT SET'}")
+        # Verify cookie was set in response
+        set_cookie = response.headers.get('Set-Cookie')
+        if set_cookie:
+            current_app.logger.info(f"✓ Set-Cookie header present: {set_cookie[:200]}")
+        else:
+            current_app.logger.error("✗ WARNING: No Set-Cookie header in response!")
+            current_app.logger.error(f"Session data: user={session.get('user')}, session_id={session.get('session_id')}")
+            current_app.logger.error(f"Session.modified={session.modified}, Session.permanent={session.permanent}")
+        
         current_app.logger.info(f"Microsoft OAuth: Showing instructions page, will redirect to {final_redirect}")
         
         current_app.logger.info(f"Microsoft OAuth: Redirecting to {redirect_url}")
@@ -960,16 +969,25 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         response = make_response(html_content, 200)
         response.headers['Content-Type'] = 'text/html; charset=utf-8'
         
+        # CRITICAL: Save session BEFORE creating response to ensure Set-Cookie is generated
+        session.modified = True
+        
         # Force session to be saved to MongoDB
         current_app.session_interface.save_session(current_app, session, response)
         
-        # Manually add Partitioned attribute to Set-Cookie header for cross-site cookies
-        set_cookie_header = response.headers.get('Set-Cookie')
-        if set_cookie_header and 'Partitioned' not in set_cookie_header:
-            response.headers['Set-Cookie'] = set_cookie_header + '; Partitioned'
-            current_app.logger.info("Added Partitioned attribute to cookie")
+        # CRITICAL FIX: Do NOT add Partitioned attribute
+        # Partitioned conflicts with SameSite=None in Safari - breaks login
+        # Flask-Session already sets SameSite=None; Secure; HttpOnly via config
         
-        current_app.logger.info(f"Set-Cookie header: {response.headers.get('Set-Cookie')[:200] if response.headers.get('Set-Cookie') else 'NOT SET'}")
+        # Verify cookie was set in response
+        set_cookie = response.headers.get('Set-Cookie')
+        if set_cookie:
+            current_app.logger.info(f"✓ Set-Cookie header present: {set_cookie[:200]}")
+        else:
+            current_app.logger.error("✗ WARNING: No Set-Cookie header in response!")
+            current_app.logger.error(f"Session data: user={session.get('user')}, session_id={session.get('session_id')}")
+            current_app.logger.error(f"Session.modified={session.modified}, Session.permanent={session.permanent}")
+        
         current_app.logger.info(f"Google OAuth: Showing instructions page, will redirect to {final_redirect}")
         return response
 
