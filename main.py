@@ -25,7 +25,7 @@ from Services.auth import utils as AuthUtils
 from Services.auth.utils import login_required
 from Services.auth import user_auth as UserAuth
 from Services.payments import payment_auth as PayAuth
-from Utils.session_fix import setup_cross_site_session_config
+
 
 # Configuration
 API_URL = os.getenv('API_URL')
@@ -99,33 +99,6 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_DOMAIN'] = None  # Let browser handle domain; set to '.mentormate.co.za' if using subdomains
 
 
-
-# --- Partitioned attribute: Only for Chrome/Brave, not for Safari/Firefox ---
-def add_partitioned_to_cookies(response):
-    """
-    Add Partitioned attribute to session cookies for Chrome/Brave (not Safari/Firefox).
-    """
-    cookies = response.headers.getlist('Set-Cookie')
-    if not cookies:
-        return response
-    response.headers.remove('Set-Cookie')
-    session_cookie_name = app.config.get('SESSION_COOKIE_NAME', 'google-login-session')
-    modified = False
-    for cookie in cookies:
-        if session_cookie_name in cookie:
-            # Only add Partitioned if not present and not on Safari/Firefox
-            # (Partitioned+SameSite=None breaks Safari)
-            if 'Partitioned' not in cookie and 'partitioned' not in cookie.lower():
-                # Optionally: Detect user-agent and skip for Safari/Firefox
-                cookie = cookie.rstrip(';').rstrip() + '; Partitioned'
-                modified = True
-        response.headers.add('Set-Cookie', cookie)
-    if modified:
-        app.logger.debug("✓ Added Partitioned attribute to session cookie")
-    return response
-
-
-
 # Initialize Flask-Session (server-side sessions)
 Session(app)
 
@@ -140,8 +113,7 @@ sessions_collection = db["sessions"]
 password_reset_collection = db["password_reset_tokens"]
 collection = db["rag_queries"]
 
-# Apply cross-site session config for Safari/Brave/CHIPS
-setup_cross_site_session_config(app)
+
 
 # Initialize OAuth
 oauth = OAuth(app)
@@ -202,6 +174,32 @@ app.json_encoder = JSONEncoder
 # Start cleanup scheduler
 # schedule_cleanup()
 AuthUtils.schedule_cleanup() 
+
+
+# --- Partitioned attribute: Only for Chrome/Brave, not for Safari/Firefox ---
+def add_partitioned_to_cookies(response):
+    """
+    Add Partitioned attribute to session cookies for Chrome/Brave (not Safari/Firefox).
+    """
+    cookies = response.headers.getlist('Set-Cookie')
+    if not cookies:
+        return response
+    response.headers.remove('Set-Cookie')
+    session_cookie_name = app.config.get('SESSION_COOKIE_NAME', 'google-login-session')
+    modified = False
+    for cookie in cookies:
+        if session_cookie_name in cookie:
+            # Only add Partitioned if not present and not on Safari/Firefox
+            # (Partitioned+SameSite=None breaks Safari)
+            if 'Partitioned' not in cookie and 'partitioned' not in cookie.lower():
+                # Optionally: Detect user-agent and skip for Safari/Firefox
+                cookie = cookie.rstrip(';').rstrip() + '; Partitioned'
+                modified = True
+        response.headers.add('Set-Cookie', cookie)
+        
+    if modified:
+        app.logger.debug("✓ Added Partitioned attribute to session cookie")
+    return response
 
 
 def _content_security_policy():
@@ -272,6 +270,81 @@ UPLOAD_USERS = [
         'name': 'User Two',
     },
 ]
+
+
+#Testing endpoints
+@app.route('/test-cookie', methods=['GET'])
+def test_cookie():
+    """
+    Diagnostic endpoint to test if cookies are being set correctly with Partitioned attribute.
+    Visit this in Safari/Brave to check the response headers.
+    """
+    # Set a test session value
+    session['test'] = 'cookie_test_value'
+    session.permanent = True
+    session.modified = True
+    
+    # Create response
+    response = jsonify({
+        'message': 'Cookie test endpoint',
+        'session_id': getattr(session, 'sid', 'NO SID'),
+        'instructions': 'Check the Response Headers in DevTools for Set-Cookie header'
+    })
+    
+    # Force session save
+    app.session_interface.save_session(app, session, response)
+    
+    # Get the Set-Cookie header
+    set_cookie_headers = response.headers.getlist('Set-Cookie')
+    
+    # Log what we're sending
+    app.logger.info("=== COOKIE TEST ENDPOINT ===")
+    app.logger.info(f"Set-Cookie headers count: {len(set_cookie_headers)}")
+    
+    for idx, cookie in enumerate(set_cookie_headers):
+        app.logger.info(f"Cookie [{idx}]: {cookie}")
+        
+        # Check for required attributes
+        has_samesite = 'SameSite=None' in cookie
+        has_secure = 'Secure' in cookie
+        has_httponly = 'HttpOnly' in cookie
+        has_partitioned = 'Partitioned' in cookie
+        
+        app.logger.info(f"  - SameSite=None: {'✓' if has_samesite else '✗'}")
+        app.logger.info(f"  - Secure: {'✓' if has_secure else '✗'}")
+        app.logger.info(f"  - HttpOnly: {'✓' if has_httponly else '✗'}")
+        app.logger.info(f"  - Partitioned: {'✓' if has_partitioned else '✗'}")
+    
+    return response
+
+@app.route('/test-check-cookie', methods=['GET'])
+def test_check_cookie():
+    """
+    Second endpoint to check if the cookie was received back from browser.
+    Call this AFTER visiting /api/test-cookie
+    """
+    app.logger.info("=== COOKIE CHECK ENDPOINT ===")
+    
+    # Check if we have the test value
+    test_value = session.get('test')
+    has_cookie = request.cookies.get(app.config['SESSION_COOKIE_NAME'])
+    
+    app.logger.info(f"Cookie received: {has_cookie is not None}")
+    app.logger.info(f"Cookie value: {has_cookie[:50] if has_cookie else 'NONE'}")
+    app.logger.info(f"Session test value: {test_value}")
+    app.logger.info(f"Session sid: {getattr(session, 'sid', 'NO SID')}")
+    
+    # Check all cookies sent by browser
+    all_cookies = request.headers.get('Cookie', '')
+    app.logger.info(f"All cookies from browser: {all_cookies[:200]}")
+    
+    return jsonify({
+        'cookie_received': has_cookie is not None,
+        'session_persisted': test_value is not None,
+        'test_value': test_value,
+        'status': 'SUCCESS' if (has_cookie and test_value) else 'FAILED'
+    })
+
 
 
 limiter = Limiter(
