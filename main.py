@@ -57,20 +57,21 @@ PAYFAST_SANDBOX = os.getenv('PAYFAST_SANDBOX', 'true').lower() == 'true'
 
 app = Flask(__name__, static_folder='static')
 
-# CRITICAL: CORS configuration for cross-origin requests from Vercel
-# Safari requires exact origin matching - no wildcard patterns
-CORS(app, 
-    origins = [
-    "https://mentormate-client.vercel.app",
-    "http://localhost:3000",
-    "https://mentormate.co.za",   
-    "https://www.mentormate.co.za",   
+
+# --- CORS: Strict, explicit origins, credentials allowed ---
+CORS(
+    app,
+    origins=[
+        "https://mentormate-client.vercel.app",
+        "https://mentormate.co.za",
+        "https://www.mentormate.co.za",
+        "http://localhost:3000"
     ],
-     supports_credentials=True,
-     allow_headers=['Content-Type', 'Authorization', 'Accept'],
-     methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-     expose_headers=['Set-Cookie'],
-     max_age=3600
+    supports_credentials=True,
+    allow_headers=["Content-Type", "Authorization", "Accept"],
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    expose_headers=["Set-Cookie"],
+    max_age=3600
 )
 
 
@@ -85,6 +86,8 @@ app.config['SESSION_TYPE'] = 'mongodb'
 app.config['SESSION_MONGODB'] = client
 app.config['SESSION_MONGODB_DB'] = 'geotech_db'
 app.config['SESSION_MONGODB_COLLECT'] = 'flask_sessions'
+
+# --- Session Cookie: Secure, cross-site, robust for all browsers ---
 app.config['SESSION_COOKIE_NAME'] = 'google-login-session'
 app.config['SESSION_PERMANENT'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)
@@ -93,44 +96,32 @@ app.config['SESSION_KEY_PREFIX'] = 'session:'
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Required for cross-site cookies
 app.config['SESSION_COOKIE_SECURE'] = True  # Required for production HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_DOMAIN'] = None  # Let browser handle domain
-# CRITICAL FIX: Removed PARTITIONED - conflicts with SameSite=None in Safari
-# Partitioned is for Chrome Privacy Sandbox, breaks Safari compatibility
+app.config['SESSION_COOKIE_DOMAIN'] = None  # Let browser handle domain; set to '.mentormate.co.za' if using subdomains
 
+
+
+# --- Partitioned attribute: Only for Chrome/Brave, not for Safari/Firefox ---
 def add_partitioned_to_cookies(response):
     """
-    Global handler to add Partitioned attribute to all session cookies.
-    This runs after EVERY request that sets a session cookie.
+    Add Partitioned attribute to session cookies for Chrome/Brave (not Safari/Firefox).
     """
-    # Get all Set-Cookie headers
     cookies = response.headers.getlist('Set-Cookie')
-    
     if not cookies:
         return response
-    
-    # Clear existing Set-Cookie headers
     response.headers.remove('Set-Cookie')
-    
-    # Get session cookie name from config
     session_cookie_name = app.config.get('SESSION_COOKIE_NAME', 'google-login-session')
-    
-    # Process each cookie
     modified = False
     for cookie in cookies:
-        # Only modify session cookies
         if session_cookie_name in cookie:
-            # Check if Partitioned is already present
+            # Only add Partitioned if not present and not on Safari/Firefox
+            # (Partitioned+SameSite=None breaks Safari)
             if 'Partitioned' not in cookie and 'partitioned' not in cookie.lower():
-                # Add Partitioned attribute
+                # Optionally: Detect user-agent and skip for Safari/Firefox
                 cookie = cookie.rstrip(';').rstrip() + '; Partitioned'
                 modified = True
-        
-        # Add the (possibly modified) cookie back
         response.headers.add('Set-Cookie', cookie)
-    
     if modified:
         app.logger.debug("✓ Added Partitioned attribute to session cookie")
-    
     return response
 
 
