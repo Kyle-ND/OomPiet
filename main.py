@@ -25,6 +25,8 @@ from Services.auth import utils as AuthUtils
 from Services.auth.utils import login_required
 from Services.auth import user_auth as UserAuth
 from Services.payments import payment_auth as PayAuth
+# Email Utils
+from Utils.EmailSender import send_contact_email
 
 
 # Configuration
@@ -1446,9 +1448,100 @@ def shared_conversation(conversation_id):
     except Exception as e:
         app.logger.error(f"Error fetching shared conversation: {str(e)}")
         return jsonify({"error": "Failed to fetch conversation"}), 500
+
+
+# ==================== CONTACT EMAIL ENDPOINT ====================
+@app.route('/api/send-contact-email', methods=['POST'])
+def contact_email_endpoint():
+    """
+    Handle contact form submissions and send emails via SMTP.
     
+    Expected JSON payload:
+    {
+        "sender_name": "John Doe",
+        "sender_email": "john@example.com",
+        "subject": "Inquiry about services",
+        "message": "I would like to know more about...",
+        "cc_emails": ["optional@example.com"],  // optional
+        "bcc_emails": ["optional@example.com"]  // optional
+    }
+    
+    Returns:
+    - Success (200): {"status": "success", "message": "Email sent successfully"}
+    - Validation Error (400): {"status": "error", "message": error_message}
+    - Server Error (500): {"status": "error", "message": error_message}
+    """
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['sender_name', 'sender_email', 'subject', 'message']
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        
+        if missing_fields:
+            return jsonify({
+                "status": "error",
+                "message": f"Missing required fields: {', '.join(missing_fields)}"
+            }), 400
+        
+        # Extract optional fields
+        cc_emails = data.get('cc_emails')
+        bcc_emails = data.get('bcc_emails')
+        recipient_email = data.get('recipient_email')  # Optional: override default
+        
+        # Validate that cc_emails and bcc_emails are lists if provided
+        if cc_emails and not isinstance(cc_emails, list):
+            return jsonify({
+                "status": "error",
+                "message": "cc_emails must be a list of email addresses"
+            }), 400
+        
+        if bcc_emails and not isinstance(bcc_emails, list):
+            return jsonify({
+                "status": "error",
+                "message": "bcc_emails must be a list of email addresses"
+            }), 400
+        
+        # Send the email
+        error_result = send_contact_email(
+            sender_name=data['sender_name'],
+            sender_email=data['sender_email'],
+            subject=data['subject'],
+            message=data['message'],
+            recipient_email=recipient_email,
+            cc_emails=cc_emails,
+            bcc_emails=bcc_emails
+        )
+        
+        # Check if there was an error
+        if error_result:
+            app.logger.warning(f"Contact email send failed: {error_result}")
+            return jsonify({
+                "status": "error",
+                "message": error_result
+            }), 400
+        
+        # Success
+        app.logger.info(f"Contact email sent from {data['sender_name']} ({data['sender_email']})")
+        return jsonify({
+            "status": "success",
+            "message": "Email sent successfully"
+        }), 200
+        
+    except ValueError as e:
+        app.logger.error(f"JSON parsing error in contact email: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": "Invalid JSON format"
+        }), 400
+    except Exception as e:
+        app.logger.error(f"Unexpected error in contact email endpoint: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": "An unexpected error occurred while sending the email"
+        }), 500
 
-
+    
 if __name__ == '__main__':
     # Create static folder if it doesn't exist
     app.run(host='0.0.0.0', port=5000)

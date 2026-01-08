@@ -3,6 +3,12 @@ import json
 from typing import Optional
 import os
 from dotenv import load_dotenv
+import re
+import smtplib
+import ssl
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from datetime import datetime
 
 load_dotenv()  # Load environment variables from a .env file if present
 # You will need to install the 'requests' library if you haven't already:
@@ -148,4 +154,145 @@ def send_password_reset_email(recipient_email: str, reset_link: str) -> Optional
 
     # if result:
     #     print(f"Failed to send email. Reason: {result}")
+
+
+def send_contact_email(
+    sender_name: str, 
+    sender_email: str, 
+    subject: str, 
+    message: str, 
+    recipient_email: Optional[str] = None,
+    cc_emails: Optional[list] = None,
+    bcc_emails: Optional[list] = None
+) -> Optional[str]:
+    """
+    Sends a contact form email from a user to the company via SMTP.
+
+    Args:
+        sender_name: The name of the person sending the message.
+        sender_email: The email address of the person sending the message.
+        subject: The subject of the email.
+        message: The body/content of the email message.
+        recipient_email: The recipient email address (company email). 
+                        If not provided, uses COMPANY_EMAIL from env.
+        cc_emails: List of email addresses to CC (optional).
+        bcc_emails: List of email addresses to BCC (optional).
+
+    Returns:
+        None if the email was sent successfully, or an error message string if it failed.
+    """
+    
+    # Validate email format
+    def is_valid_email(email: str) -> bool:
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        return re.match(pattern, email) is not None
+    
+    # Get SMTP configuration from environment variables
+    SMTP_SERVER = os.getenv('SMTP_SERVER')
+    SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
+    SMTP_USERNAME = os.getenv('SMTP_USERNAME')
+    SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
+    SMTP_FROM = os.getenv('SMTP_FROM', SMTP_USERNAME)
+    COMPANY_EMAIL = os.getenv('COMPANY_EMAIL', 'neo@skxconsulting.co.za')
+    
+    # Use provided recipient email or default to company email
+    recipient_email = recipient_email or COMPANY_EMAIL
+    
+    # Validate required environment variables
+    required_env_vars = ['SMTP_SERVER', 'SMTP_USERNAME', 'SMTP_PASSWORD']
+    missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+    if missing_vars:
+        return f"SMTP configuration is missing. Please check environment variables: {', '.join(missing_vars)}"
+    
+    # Validate input parameters
+    if not all([sender_name, sender_email, subject, message]):
+        return "Missing required fields: name, email, subject, and message are all required."
+    
+    # Validate email format
+    if not is_valid_email(sender_email):
+        return f"Invalid sender email format: {sender_email}"
+    
+    if recipient_email and not is_valid_email(recipient_email):
+        return f"Invalid recipient email format: {recipient_email}"
+    
+    if not is_valid_email(SMTP_FROM):
+        return f"Invalid FROM email in configuration: {SMTP_FROM}"
+    
+    try:
+        # Prepare all recipients
+        all_recipients = [recipient_email]
+        if cc_emails:
+            all_recipients.extend(cc_emails)
+        if bcc_emails:
+            all_recipients.extend(bcc_emails)
+        
+        # Create plain text version
+        text_body = f"""Contact Form Submission
+========================
+
+From: {sender_name}
+Email: {sender_email}
+Subject: {subject}
+
+Message:
+--------
+{message}
+
+---
+This email was sent via the contact form on MentorMate website.
+"""
+        
+        # Build email message
+        email_msg = MIMEMultipart('alternative')
+        email_msg['Subject'] = f"Contact Form: {subject}"
+        email_msg['From'] = SMTP_FROM
+        email_msg['To'] = recipient_email
+        email_msg['Reply-To'] = sender_email
+        
+        if cc_emails:
+            invalid_cc = [email for email in cc_emails if not is_valid_email(email)]
+            if invalid_cc:
+                return f"Invalid CC email addresses: {', '.join(invalid_cc)}"
+            email_msg['Cc'] = ', '.join(cc_emails)
+        
+        # Attach plain text
+        email_msg.attach(MIMEText(text_body, 'plain'))
+        
+        # Simple HTML version
+        html_body = f"""<html><body>
+<h2>Contact Form Submission</h2>
+<p><strong>From:</strong> {sender_name}</p>
+<p><strong>Email:</strong> <a href="mailto:{sender_email}">{sender_email}</a></p>
+<p><strong>Subject:</strong> {subject}</p>
+<p><strong>Message:</strong></p>
+<p>{message.replace(chr(10), '<br>')}</p>
+<hr>
+<p><small>This email was sent via the contact form on MentorMate website.</small></p>
+</body></html>"""
+        
+        email_msg.attach(MIMEText(html_body, 'html'))
+        
+        # Send via SMTP - Simple and direct approach
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.send_message(email_msg, from_addr=SMTP_FROM, to_addrs=all_recipients)
+        
+        print(f"Contact email successfully sent from {sender_name} to company contact")
+        return None
+        
+    except smtplib.SMTPAuthenticationError as e:
+        error_message = f"SMTP authentication failed: {str(e)}"
+        # Don't log passwords in production!
+        print("SMTP authentication failed. Check credentials.")
+        return error_message
+    except smtplib.SMTPException as e:
+        error_message = f"SMTP error: {str(e)}"
+        print(f"SMTP error: {error_message}")
+        return error_message
+    except Exception as e:
+        error_message = f"Unexpected error: {str(e)}"
+        print(f"Unexpected error: {error_message}")
+        return error_message
+
 
