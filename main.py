@@ -59,6 +59,8 @@ PAYFAST_SANDBOX = os.getenv('PAYFAST_SANDBOX', 'true').lower() == 'true'
 
 app = Flask(__name__, static_folder='static')
 
+# Load backend subdomain from environment
+BACKEND_SUBDOMAIN = os.getenv('BACKEND_SUBDOMAIN', 'https://api.mentormate.co.za')
 
 # --- CORS: Strict, explicit origins, credentials allowed ---
 CORS(
@@ -67,6 +69,7 @@ CORS(
         "https://mentormate-client.vercel.app",
         "https://mentormate.co.za",
         "https://www.mentormate.co.za",
+        BACKEND_SUBDOMAIN,
         "http://localhost:3000"
     ],
     supports_credentials=True,
