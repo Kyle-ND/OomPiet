@@ -10,6 +10,9 @@ from werkzeug.security import check_password_hash,generate_password_hash
 from Utils.EmailSender import send_password_reset_email
 from . import utils as AuthUtils
 
+import base64
+import json
+
 TENANT_ID = os.getenv("TID")  
 CLIENT_ID = os.getenv("CID")  
 CLIENT_SECRET = os.getenv("SID")  
@@ -1099,9 +1102,25 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
     recover_oauth_session_from_cookies('google', state_in_url)
     
     current_app.logger.info(f"Final session state keys: {[k for k in session.keys() if k.startswith('_state_')]}")
+
+    redirect_url = 'https://mentormate-client.vercel.app/google-callback'
+
+    if state_in_url:
+        try:
+            # Decode state parameter
+            decoded_state = base64.urlsafe_b64decode(state_in_url.encode('utf-8'))
+            state_data = json.loads(decoded_state.decode('utf-8'))
+            redirect_url = state_data.get('redirect_url', redirect_url)
+            current_app.logger.info(f"✓ Extracted redirect URL from state: {redirect_url}")
+        except Exception as e:
+            current_app.logger.warning(f"Could not decode state: {e}, using default")
     
-    # Get redirect URL from session
-    redirect_url = session.get('redirect_url', 'https://mentormate-client.vercel.app/google-callback')
+    # Fallback to session if state decode failed
+    if redirect_url == 'https://mentormate-client.vercel.app/google-callback':
+        redirect_url = session.get('redirect_url', redirect_url)
+    
+    # Attempt to recover OAuth session from alternate cookies if needed
+    recover_oauth_session_from_cookies('google', state_in_url)
     
     try:
         # Authlib automatically verifies state from session
