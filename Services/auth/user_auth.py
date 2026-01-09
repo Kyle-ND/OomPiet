@@ -261,9 +261,16 @@ def handle_signin(users_collection):
             'premium': user.get('premium', False)
         }
         session['session_id'] = AuthUtils.create_user_session(email)
+        session.modified = True
 
+        # Create response and explicitly save session
+        response = make_response(jsonify({'success': True, 'message': 'Login successful', 'user': session['user']}))
+        current_app.session_interface.save_session(current_app, session, response)
+        
         current_app.logger.info(f"Login successful for user: {email}")
-        return jsonify({'success': True, 'message': 'Login successful', 'user': session['user']}), 200
+        current_app.logger.info(f"✓ Session saved with Set-Cookie headers")
+        
+        return response, 200
 
     except Exception as e:
         current_app.logger.error(f"Signin error: {str(e)}")
