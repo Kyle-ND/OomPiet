@@ -595,7 +595,7 @@ def login():
     session.clear()
     
     # Set redirect URL for callback
-    session['redirect_url'] = "https://mentormate.co.za/google-callback"
+    session['redirect_url'] = "https://mentormate-client.vercel.app/microsoft-callback"
     
     redirect_uri = url_for('google_callback', _external=True)
     
@@ -658,7 +658,7 @@ def microsoft_login():
             app.logger.warning(f"Could not delete old session: {e}")
     
     session.clear()
-    session['redirect_url'] = "https://mentormate.co.za/microsoft-callback"
+    session['redirect_url'] = "https://mentormate-client.vercel.app/microsoft-callback"
     
     redirect_uri = url_for('microsoft_callback', _external=True)
     response = microsoft.authorize_redirect(redirect_uri)
