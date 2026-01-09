@@ -590,28 +590,77 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         from urllib.parse import urlencode
         final_redirect = f"{redirect_url}?{urlencode(params)}"
         
-        # Create response
-        current_app.logger.info(f"Microsoft OAuth: Using 302 redirect")
-        response = make_response(redirect(final_redirect, code=302))
-        
-        # Force session save
+        # CRITICAL: Save session BEFORE creating response
         session.modified = True
         session.permanent = True
+        
+        # Create HTML response with JavaScript redirect
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Signing in...</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    margin: 0;
+                    background: linear-gradient(135deg, #00a4ef 0%, #0078d4 100%);
+                }}
+                .loader {{
+                    text-align: center;
+                    color: white;
+                }}
+                .spinner {{
+                    border: 4px solid rgba(255, 255, 255, 0.3);
+                    border-radius: 50%;
+                    border-top: 4px solid white;
+                    width: 40px;
+                    height: 40px;
+                    animation: spin 1s linear infinite;
+                    margin: 0 auto 20px;
+                }}
+                @keyframes spin {{
+                    0% {{ transform: rotate(0deg); }}
+                    100% {{ transform: rotate(360deg); }}
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="loader">
+                <div class="spinner"></div>
+                <p>Signing in with Microsoft...</p>
+            </div>
+            <script>
+                // Small delay to ensure cookie is set
+                setTimeout(function() {{
+                    window.location.href = '{final_redirect}';
+                }}, 100);
+            </script>
+        </body>
+        </html>
+        """
+        
+        response = make_response(html_content, 200)
+        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        
+        # Force session save with proper cookie attributes
         current_app.session_interface.save_session(current_app, session, response)
         
-        # NEW: Add Partitioned attribute
+        # Add Partitioned attribute for Safari/Brave
         response = add_partitioned_to_response(response)
         
-        # Log cookie headers
+        # Log cookie headers for debugging
         set_cookie_headers = response.headers.getlist('Set-Cookie')
         current_app.logger.info(f"📤 Response Set-Cookie headers: {len(set_cookie_headers)}")
-        
         for idx, cookie in enumerate(set_cookie_headers):
             current_app.logger.info(f"   [{idx}] {cookie[:200]}")
-            if 'Partitioned' in cookie:
-                current_app.logger.info("   ✓ Has Partitioned attribute")
         
-        current_app.logger.info(f"Redirecting to {final_redirect[:100]}...")
+        current_app.logger.info(f"Microsoft OAuth: Redirecting to {final_redirect[:100]}")
         return response
 
     except Exception as e:
@@ -1120,54 +1169,87 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         # Create session token for fallback
         session_token = session.sid if hasattr(session, 'sid') else str(uuid.uuid4())
         
-        # Build redirect URL
-        from urllib.parse import quote
-        redirect_params = f"email={quote(db_user['email'])}&name={quote(db_user['name'])}&picture={quote(db_user.get('picture', '/static/default-profile.png'))}&session_token={session_token}"
-        final_redirect = f"{redirect_url}?{redirect_params}"
+        # Build redirect URL with URL encoding
+        from urllib.parse import urlencode
+        params = {
+            "email": db_user["email"],
+            "name": db_user["name"],
+            "picture": db_user.get("picture", "/static/default-profile.png"),
+            "session_token": session_token
+        }
+        final_redirect = f"{redirect_url}?{urlencode(params)}"
         
-        # Create 302 redirect response
-        current_app.logger.info(f"Google OAuth: Using 302 redirect")
-        response = make_response(redirect(final_redirect, code=302))
-        
-        # CRITICAL: Force session save to MongoDB FIRST
+        # CRITICAL: Save session BEFORE creating response
         session.modified = True
         session.permanent = True
+        
+        # Create HTML response with JavaScript redirect
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Signing in...</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    margin: 0;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                }}
+                .loader {{
+                    text-align: center;
+                    color: white;
+                }}
+                .spinner {{
+                    border: 4px solid rgba(255, 255, 255, 0.3);
+                    border-radius: 50%;
+                    border-top: 4px solid white;
+                    width: 40px;
+                    height: 40px;
+                    animation: spin 1s linear infinite;
+                    margin: 0 auto 20px;
+                }}
+                @keyframes spin {{
+                    0% {{ transform: rotate(0deg); }}
+                    100% {{ transform: rotate(360deg); }}
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="loader">
+                <div class="spinner"></div>
+                <p>Signing in with Google...</p>
+            </div>
+            <script>
+                // Small delay to ensure cookie is set
+                setTimeout(function() {{
+                    window.location.href = '{final_redirect}';
+                }}, 100);
+            </script>
+        </body>
+        </html>
+        """
+        
+        response = make_response(html_content, 200)
+        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        
+        # Force session save with proper cookie attributes
         current_app.session_interface.save_session(current_app, session, response)
         
-        # NEW: Add Partitioned attribute for Safari/Brave
+        # Add Partitioned attribute for Safari/Brave
         response = add_partitioned_to_response(response)
         
-        # Verify and log cookie headers
+        # Log cookie headers for debugging
         set_cookie_headers = response.headers.getlist('Set-Cookie')
         current_app.logger.info(f"📤 Response Set-Cookie headers: {len(set_cookie_headers)}")
-        
         for idx, cookie in enumerate(set_cookie_headers):
             current_app.logger.info(f"   [{idx}] {cookie[:200]}")
-            
-            # Check for required attributes
-            if 'Partitioned' in cookie:
-                current_app.logger.info("   ✓ Has Partitioned attribute")
-            if 'SameSite=None' in cookie and 'Secure' in cookie:
-                current_app.logger.info("   ✓ Has SameSite=None and Secure")
         
-        # Verify MongoDB save
-        try:
-            mongo_client = current_app.config.get('SESSION_MONGODB')
-            db_name = current_app.config.get('SESSION_MONGODB_DB', 'geotech_db')
-            collection_name = current_app.config.get('SESSION_MONGODB_COLLECT', 'flask_sessions')
-            
-            if mongo_client and hasattr(session, 'sid'):
-                session_collection = mongo_client[db_name][collection_name]
-                saved_session = session_collection.find_one({'id': session.sid})
-                
-                if saved_session:
-                    current_app.logger.info(f"✓ Session verified in MongoDB")
-                else:
-                    current_app.logger.error(f"✗ Session NOT in MongoDB!")
-        except Exception as e:
-            current_app.logger.error(f"MongoDB verification failed: {e}")
-        
-        current_app.logger.info(f"Redirecting to {final_redirect[:100]}...")
+        current_app.logger.info(f"Google OAuth: Redirecting to {final_redirect[:100]}")
         return response
 
     except Exception as e:
