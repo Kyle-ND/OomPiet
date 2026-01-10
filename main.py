@@ -244,18 +244,15 @@ def test_cookie():
     session.modified = True
     
     # Create response
+    response = jsonify({
+        'message': 'Cookie test endpoint',
+        'session_id': getattr(session, 'sid', 'NO SID'),
+        'instructions': 'Check the Response Headers in DevTools for Set-Cookie header'
+    })
+    
     # Force session save
     app.session_interface.save_session(app, session, response)
     return response
-                    upsert=True
-                )
-                if result.acknowledged:
-                    app.logger.info(f"✓ Session saved: {session_id[:20]}...")
-                else:
-                    app.logger.error(f"✗ Session save not acknowledged!")
-        except Exception as e:
-            app.logger.error(f"Session save failed: {e}")
-        return response
 
 """I will remove this function once we have a dedicated Util func"""
 def get_login_identifier():

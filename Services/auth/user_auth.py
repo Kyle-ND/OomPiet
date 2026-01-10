@@ -521,8 +521,12 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         try:
             session_id = session_cookie.split('.')[0] if '.' in session_cookie else session_cookie
             mongo_client = current_app.config.get('SESSION_MONGODB')
-            session_collection = mongo_client['geotech_db']['flask_sessions']
-            found_session = session_collection.find_one({"id": session_id})
+            if mongo_client:
+                session_collection = mongo_client['geotech_db']['flask_sessions']
+                found_session = session_collection.find_one({"id": session_id})
+            else:
+                current_app.logger.error("SESSION_MONGODB not configured")
+                found_session = None
             
             if found_session and found_session.get('val'):
                 import pickle
@@ -613,6 +617,7 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
             "email": db_user["email"],
             "name": db_user["name"],
             "picture": db_user.get("picture", "/static/default-profile.png"),
+            "session_token": session_id,
             "auth_success": "true"
         }
         
@@ -660,11 +665,11 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
                 <p>Completing sign in...</p>
             </div>
             <script>
-                // Note: 500ms delay is intentional to ensure session/cookies are fully persisted
+                // Note: 300ms delay is intentional to ensure session/cookies are fully persisted
                 // and the response is processed before navigating, reducing race conditions on sign-in.
                 setTimeout(function() {{
                     window.location.href = '{final_redirect}';
-                }}, 500);
+                }}, 300);
             </script>
         </body>
         </html>
