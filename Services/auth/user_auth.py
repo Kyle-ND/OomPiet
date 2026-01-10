@@ -723,36 +723,71 @@ def get_microsoft_profile_picture(microsoft, token):
 
 def handle_google_callback(google, users_collection, initialize_new_user_dashboard_stats):
     """
-    UPDATED: Google OAuth callback with Partitioned cookie support
+    STATELESS OAuth callback - doesn't rely on session cookies
+    All state is passed via signed state parameter
     """
-    # Strict session cookie validation (robust parsing)
-    cookie_name = current_app.config.get('SESSION_COOKIE_NAME', 'google-login-session')
-    session_cookies = request.cookies.getlist(cookie_name)
-    if len(session_cookies) > 1:
-        current_app.logger.warning(f"Multiple {cookie_name} cookies detected: rejecting request for security.")
-        session.clear()
-        return redirect("/login?error=multiple_cookies_detected")
-    current_app.logger.info("=== GOOGLE CALLBACK START ===")
+    import hmac
+    import hashlib
+    
+    current_app.logger.info("=== GOOGLE CALLBACK START (STATELESS) ===")
     current_app.logger.info(f"Request cookies: {list(request.cookies.keys())}")
-    current_app.logger.info(f"Session contains user: {'user' in session}")
     
-    state_in_url = request.args.get('state')
-    current_app.logger.info(f"State in URL: {state_in_url}")
+    # Get state from URL
+    signed_state = request.args.get('state')
+    if not signed_state:
+        current_app.logger.error("No state parameter in callback")
+        return redirect("https://mentormate-client.vercel.app/login?error=missing_state")
     
-    # Attempt to recover OAuth session from alternate cookies if needed
-    recover_oauth_session_from_cookies('google', state_in_url)
-    
-    current_app.logger.info(f"Final session state keys: {[k for k in session.keys() if k.startswith('_state_')]}")
-    
-    # Get redirect URL from session (stored during /login/google)
-    redirect_url = session.get('redirect_url', 'https://mentormate-client.vercel.app/google-callback')
-    current_app.logger.info(f"Using redirect_url from session: {redirect_url}")
+    # Validate and decode state
+    try:
+        # Split state and signature
+        if '.' not in signed_state:
+            raise ValueError("Invalid state format")
+        
+        state_b64, signature = signed_state.rsplit('.', 1)
+        
+        # Verify signature
+        secret_key_bytes = current_app.secret_key if isinstance(current_app.secret_key, bytes) else current_app.secret_key.encode()
+        expected_signature = hmac.new(
+            secret_key_bytes,
+            state_b64.encode(),
+            hashlib.sha256
+        ).hexdigest()[:16]
+        
+        if not hmac.compare_digest(signature, expected_signature):
+            raise ValueError("State signature validation failed")
+        
+        # Decode state
+        state_json = base64.urlsafe_b64decode(state_b64.encode()).decode()
+        state_data = json.loads(state_json)
+        
+        redirect_url = state_data.get('redirect_url', 'https://mentormate-client.vercel.app/google-callback')
+        provider = state_data.get('provider', 'google')
+        
+        current_app.logger.info(f"✓ State validated: provider={provider}, redirect={redirect_url}")
+        
+    except Exception as e:
+        current_app.logger.error(f"State validation failed: {e}")
+        return redirect("https://mentormate-client.vercel.app/login?error=invalid_state")
     
     try:
-        # Authlib automatically verifies state from session
-        current_app.logger.info("Calling authorize_access_token()...")
-        token = google.authorize_access_token()
-        current_app.logger.info(f"Token received: {token is not None}")
+        # Get authorization code from URL
+        code = request.args.get('code')
+        if not code:
+            raise ValueError("No authorization code received")
+        
+        current_app.logger.info("Exchanging authorization code for token...")
+        
+        # Bypass Authlib's state validation by calling token endpoint directly
+        # We already validated state ourselves
+        redirect_uri = url_for('google_callback', _external=True)
+        
+        token = google.fetch_access_token(
+            authorization_response=request.url,
+            redirect_uri=redirect_uri
+        )
+        current_app.logger.info(f"✓ Token received")
+        
         if not token:
             raise ValueError("Failed to get access token")
 

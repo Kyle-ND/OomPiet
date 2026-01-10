@@ -17,6 +17,8 @@ import json
 import msal
 import re
 import secrets
+import hmac
+import hashlib
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash
 import json
@@ -409,15 +411,35 @@ def login():
     else:
         redirect_url = "https://mentormate-client.vercel.app/google-callback"
 
-    # Store redirect URL in session for callback to use
-    session['redirect_url'] = redirect_url
-    session['oauth_provider'] = 'google'
+    # Create stateless state parameter (doesn't rely on session/cookies)
+    # This works even when browsers block cookies during OAuth redirect
+    state_data = {
+        'redirect_url': redirect_url,
+        'provider': 'google',
+        'timestamp': datetime.datetime.now(timezone.utc).isoformat(),
+        'nonce': secrets.token_urlsafe(16)
+    }
+    
+    # Encode and sign state to prevent tampering
+    state_json = json.dumps(state_data)
+    state_b64 = base64.urlsafe_b64encode(state_json.encode()).decode()
+    
+    # Sign state with secret key to prevent tampering
+    secret_key_bytes = app.secret_key if isinstance(app.secret_key, bytes) else app.secret_key.encode()
+    signature = hmac.new(
+        secret_key_bytes,
+        state_b64.encode(),
+        hashlib.sha256
+    ).hexdigest()[:16]  # Use first 16 chars
+    
+    # Combine state and signature
+    signed_state = f"{state_b64}.{signature}"
    
     redirect_uri = url_for('google_callback', _external=True)
     
-    # Let Authlib generate and manage state automatically
-    # Do NOT pass custom state - Authlib will store it in session
-    response = google.authorize_redirect(redirect_uri=redirect_uri)
+    # Pass signed state to OAuth provider
+    # We override Authlib's state management completely
+    response = google.authorize_redirect(redirect_uri=redirect_uri, state=signed_state)
     
     # Force session save
     session.modified = True
@@ -479,14 +501,29 @@ def microsoft_login():
     else:
         redirect_url = "https://mentormate-client.vercel.app/microsoft-callback"
 
-    # Store redirect URL in session for callback to use
-    session['redirect_url'] = redirect_url
-    session['oauth_provider'] = 'microsoft'
+    # Create stateless state parameter (doesn't rely on session/cookies)
+    state_data = {
+        'redirect_url': redirect_url,
+        'provider': 'microsoft',
+        'timestamp': datetime.datetime.now(timezone.utc).isoformat(),
+        'nonce': secrets.token_urlsafe(16)
+    }
+    
+    # Encode and sign state
+    state_json = json.dumps(state_data)
+    state_b64 = base64.urlsafe_b64encode(state_json.encode()).decode()
+    
+    secret_key_bytes = app.secret_key if isinstance(app.secret_key, bytes) else app.secret_key.encode()
+    signature = hmac.new(
+        secret_key_bytes,
+        state_b64.encode(),
+        hashlib.sha256
+    ).hexdigest()[:16]
+    
+    signed_state = f"{state_b64}.{signature}"
     
     redirect_uri = url_for('microsoft_callback', _external=True)
-    
-    # Let Authlib generate and manage state automatically
-    response = microsoft.authorize_redirect(redirect_uri=redirect_uri)
+    response = microsoft.authorize_redirect(redirect_uri=redirect_uri, state=signed_state)
     
     session.modified = True
     try:
