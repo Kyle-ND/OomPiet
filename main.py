@@ -156,7 +156,7 @@ microsoft = oauth.register(
         'scope': 'openid email profile User.Read',
         'token_endpoint_auth_method': 'client_secret_post',
     },
-    server_metadata_url=f'https://login.microsoftonline.com/{MICROSOFT_TENANT_ID}/v2.0/.well-known/openid-configuration',
+    server_metadata_url='https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration',
 )
 
 SMTP_SERVER = os.getenv('SMTP_SERVER')
@@ -551,21 +551,9 @@ def microsoft_callback():
 
 @app.route('/google/callback')
 def google_callback():
-    # Google OAuth callback
-    state_in_url = request.args.get('state')
-    state_in_session = session.get('oauth_state')
-    app.logger.info(f"State in URL: {state_in_url}")
-    app.logger.info(f"State in session: {state_in_session}")
-    if not state_in_session or state_in_url != state_in_session:
-        app.logger.warning(f"State mismatch: session={state_in_session}, url={state_in_url}")
-    state_in_url = request.args.get('state')
-    state_in_session = session.get('oauth_state')
-    app.logger.info(f"State in URL: {state_in_url}")
-    app.logger.info(f"State in session: {state_in_session}")
-    if not state_in_session or state_in_url != state_in_session:
-        app.logger.warning(f"State mismatch: session={state_in_session}, url={state_in_url}")
-        session.clear()
-        return redirect("/login?error=state_mismatch")
+    """Handle Google OAuth callback - Authlib validates state automatically"""
+    # Authlib automatically validates state parameter against session
+    # No need for manual state validation here
     return UserAuth.handle_google_callback(google,users_collection,initialize_new_user_dashboard_stats)
 
 @app.route('/check-login-status')
