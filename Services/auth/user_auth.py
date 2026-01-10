@@ -628,7 +628,7 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
             <title>Signing in...</title>
             <style>
                 body {{
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    font-family: Arial, sans-serif;
                     display: flex;
                     justify-content: center;
                     align-items: center;
@@ -661,6 +661,8 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
                 <p>Completing sign in...</p>
             </div>
             <script>
+                // Note: 500ms delay is intentional to ensure session/cookies are fully persisted
+                // and the response is processed before navigating, reducing race conditions on sign-in.
                 setTimeout(function() {{
                     window.location.href = '{final_redirect}';
                 }}, 500);

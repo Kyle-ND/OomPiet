@@ -478,8 +478,7 @@ def login():
     encoded_state = base64.urlsafe_b64encode(
         json.dumps(state_data).encode('utf-8')
     ).decode('utf-8')
-    # Store state in session for later validation
-    session['oauth_state'] = encoded_state
+    # Store redirect URL in session (state itself is handled via the OAuth flow)
     session['redirect_url'] = redirect_url
 
    
@@ -507,11 +506,11 @@ def login():
             session_collection = client['geotech_db']['flask_sessions']
             
             
-            session_doc = {
-                'id': session_id,
-                'val': pickle.dumps(dict(session)),
-                'expiration': datetime.datetime.now(UTC) + timedelta(minutes=60)
-            }
+                session_doc = {
+                    'id': session_id,
+                    'val': pickle.dumps(dict(session)),
+                    'expiration': datetime.datetime.now(timezone.utc) + timedelta(minutes=60)
+                }
             
             result = session_collection.replace_one(
                 {'id': session_id},
