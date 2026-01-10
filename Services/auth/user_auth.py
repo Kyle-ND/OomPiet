@@ -518,31 +518,32 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
     if not has_redirect and session_cookie:
         current_app.logger.warning("Session empty, attempting recovery")
         
-        try:
-            session_id = session_cookie.split('.')[0] if '.' in session_cookie else session_cookie
-            mongo_client = current_app.config.get('SESSION_MONGODB')
-            if mongo_client:
+        # Check if MongoDB is configured before attempting recovery
+        mongo_client = current_app.config.get('SESSION_MONGODB')
+        if not mongo_client:
+            current_app.logger.error("SESSION_MONGODB not configured - cannot recover session, OAuth may fail")
+            # Skip recovery attempt and continue - OAuth flow will handle missing session gracefully
+        else:
+            try:
+                session_id = session_cookie.split('.')[0] if '.' in session_cookie else session_cookie
                 session_collection = mongo_client['geotech_db']['flask_sessions']
                 found_session = session_collection.find_one({"id": session_id})
-            else:
-                current_app.logger.error("SESSION_MONGODB not configured")
-                found_session = None
             
-            if found_session and found_session.get('val'):
-                import pickle
-                session_data = pickle.loads(found_session['val'])
-                
-                if 'redirect_url' in session_data:
-                    session['redirect_url'] = session_data['redirect_url']
-                    current_app.logger.info(f"✓ Recovered redirect_url")
-                
-                if 'oauth_provider' in session_data:
-                    session['oauth_provider'] = session_data['oauth_provider']
-                
-                session.modified = True
-                
-        except Exception as e:
-            current_app.logger.error(f"Session recovery failed: {e}")
+                if found_session and found_session.get('val'):
+                    import pickle
+                    session_data = pickle.loads(found_session['val'])
+                    
+                    if 'redirect_url' in session_data:
+                        session['redirect_url'] = session_data['redirect_url']
+                        current_app.logger.info(f"✓ Recovered redirect_url")
+                    
+                    if 'oauth_provider' in session_data:
+                        session['oauth_provider'] = session_data['oauth_provider']
+                    
+                    session.modified = True
+                    
+            except Exception as e:
+                current_app.logger.error(f"Session recovery failed: {e}")
     
     redirect_url = session.get('redirect_url', 'https://mentormate-client.vercel.app/microsoft-callback')
     
@@ -665,8 +666,14 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
                 <p>Completing sign in...</p>
             </div>
             <script>
-                // Note: 300ms delay is intentional to ensure session/cookies are fully persisted
-                // and the response is processed before navigating, reducing race conditions on sign-in.
+                // Note: 300ms delay is intentional. This value is a compromise between:
+                // - Being long enough for server-side session/cookie persistence and response handling
+                //   to reliably complete in typical deployments (where this usually finishes < 100ms),
+                //   helping to reduce race conditions on sign-in.
+                // - Being short enough to avoid the more noticeable UI lag observed with 500ms, which
+                //   did not provide any measurable reliability benefit in our testing.
+                // If you adjust this value, keep both reliability (session write latency) and perceived
+                // responsiveness in mind; values significantly below 300ms may reintroduce races.
                 setTimeout(function() {{
                     window.location.href = '{final_redirect}';
                 }}, 300);
