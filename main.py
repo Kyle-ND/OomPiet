@@ -1,4 +1,7 @@
-from datetime import timezone,timedelta,datetime
+from datetime import timezone,timedelta,datetime,UTC
+import pickle
+import datetime
+from xmlrpc.client import _datetime
 from bson import ObjectId
 from flask import Flask, jsonify, redirect, render_template, request, url_for, session, send_from_directory
 from flask_session import Session
@@ -9,6 +12,8 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 import requests
 import uuid
+import base64
+import json
 import msal
 import re
 import secrets
@@ -23,6 +28,8 @@ load_dotenv()
 #Auth Utils
 from Services.auth import utils as AuthUtils
 from Services.auth.utils import login_required
+import sys
+import logging
 from Services.auth import user_auth as UserAuth
 from Services.payments import payment_auth as PayAuth
 # Email Utils
@@ -107,6 +114,7 @@ app.config['SESSION_COOKIE_DOMAIN'] = None  # Let browser handle domain; set to 
 # Initialize Flask-Session (server-side sessions)
 Session(app)
 
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 app.logger.setLevel(logging.INFO)
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -156,6 +164,7 @@ SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
 SMTP_USERNAME = os.getenv('SMTP_USERNAME')
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
 SMTP_FROM = os.getenv('SMTP_FROM', SMTP_USERNAME)
+
 
 # Valid collections accepted by the RAG service
 ALLOWED_QDRANT_COLLECTIONS = [
@@ -366,8 +375,8 @@ def initialize_new_user_dashboard_stats(email):
         "user_email": email,
         "total_chats": 0,
         "total_messages": 0,
-        "last_active": datetime.now(timezone.utc),
-        "created_at": datetime.now(timezone.utc)
+        "last_active": datetime.datetime.now(timezone.utc),
+        "created_at": datetime.datetime.now(timezone.utc)
     }
     dashboard_stats_collection.insert_one(stats)
     return stats
@@ -593,14 +602,36 @@ def login():
     
     # Clear session (generates new ID)
     session.clear()
+
+    if MODE == 'development':
+        redirect_url = "http://localhost:3000/google-callback"
+    else:
+        redirect_url = "https://mentormate-client.vercel.app/google-callback"
+
+    
+    # Encode redirect URL in state parameter (survives Safari/Brave cookie blocking)
+    state_data = {
+        'redirect_url': redirect_url,
+        'timestamp': datetime.datetime.now(timezone.utc).isoformat()
+    }
+
+    # Base64 encode the state data
+    encoded_state = base64.urlsafe_b64encode(
+        json.dumps(state_data).encode('utf-8')
+    ).decode('utf-8')
     
     # Set redirect URL for callback
-    session['redirect_url'] = "https://mentormate-client.vercel.app/microsoft-callback"
-    
+    session['redirect_url'] = redirect_url
+
+   
     redirect_uri = url_for('google_callback', _external=True)
     
     # Let Authlib handle state
-    response = google.authorize_redirect(redirect_uri=redirect_uri)
+    # Pass custom state to Authlib
+    response = google.authorize_redirect(
+        redirect_uri=redirect_uri,
+        state=encoded_state
+    )
     
     # Force session save
     session.modified = True
@@ -615,13 +646,12 @@ def login():
             
             # Force MongoDB write
             session_collection = client['geotech_db']['flask_sessions']
-            import pickle
-            from datetime import datetime, UTC
+            
             
             session_doc = {
                 'id': session_id,
                 'val': pickle.dumps(dict(session)),
-                'expiration': datetime.now(UTC) + timedelta(minutes=60)
+                'expiration': datetime.datetime.now(UTC) + timedelta(minutes=60)
             }
             
             result = session_collection.replace_one(
@@ -658,10 +688,26 @@ def microsoft_login():
             app.logger.warning(f"Could not delete old session: {e}")
     
     session.clear()
-    session['redirect_url'] = "https://mentormate-client.vercel.app/microsoft-callback"
+    if MODE == 'development':
+        redirect_url = "http://localhost:3000/microsoft-callback"
+    else:
+        redirect_url = "https://mentormate-client.vercel.app/microsoft-callback"
+
+    # Encode redirect URL in state parameter (survives Safari/Brave cookie blocking)
+    state_data = {
+        'redirect_url': redirect_url,
+        'timestamp': datetime.datetime.now(timezone.utc).isoformat()
+    }
+
+    # Base64 encode the state data
+    encoded_state = base64.urlsafe_b64encode(
+        json.dumps(state_data).encode('utf-8')
+    ).decode('utf-8')
+
+    session['redirect_url'] = redirect_url
     
     redirect_uri = url_for('microsoft_callback', _external=True)
-    response = microsoft.authorize_redirect(redirect_uri)
+    response = microsoft.authorize_redirect(redirect_uri=redirect_uri, state=encoded_state)
     
     session.modified = True
     try:
@@ -673,13 +719,12 @@ def microsoft_login():
             session_id = cookie_value.split('.')[0] if '.' in cookie_value else cookie_value
             
             session_collection = client['geotech_db']['flask_sessions']
-            import pickle
-            from datetime import datetime, UTC
+            
             
             session_doc = {
                 'id': session_id,
                 'val': pickle.dumps(dict(session)),
-                'expiration': datetime.now(UTC) + timedelta(minutes=60)
+                'expiration': datetime.datetime.now(UTC) + timedelta(minutes=60)
             }
             
             result = session_collection.replace_one(
@@ -690,6 +735,8 @@ def microsoft_login():
             
             if result.acknowledged:
                 app.logger.info(f"✓ Session saved: {session_id[:20]}...")
+            else:
+                app.logger.error(f"✗ Session save not acknowledged!")
             
     except Exception as e:
         app.logger.error(f"Session save failed: {e}")
@@ -1191,7 +1238,7 @@ def proxy_rag():
         forward_payload['user_id'] = user_id
 
         # Persist the user's message first (so we always have the user's side recorded)
-        now = datetime.now(timezone.utc)
+        now = datetime.datetime.now(timezone.utc)
         try:
             user_doc = {
                 "conversation_id": conversation_id,
@@ -1226,7 +1273,7 @@ def proxy_rag():
                 assistant_doc = {
                     "conversation_id": conversation_id,
                     "collection_name": collection_name,
-                    "timestamp": datetime.now(timezone.utc),
+                    "timestamp": datetime.datetime.now(timezone.utc),
                     "query": None,
                     "answer": resp_json.get('answer'),
                     "model_used": resp_json.get('model_used'),
@@ -1336,7 +1383,7 @@ def share_conversation():
         # Mark all messages in this conversation as shared
         result = collection.update_many(
             {"conversation_id": conversation_id},
-            {"$set": {"is_shared": True, "shared_at": datetime.now(timezone.utc)}}
+            {"$set": {"is_shared": True, "shared_at": datetime.datetime.now(timezone.utc)}}
         )
         
         # Generate shareable link
@@ -1547,4 +1594,4 @@ def contact_email_endpoint():
     
 if __name__ == '__main__':
     # Create static folder if it doesn't exist
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)
