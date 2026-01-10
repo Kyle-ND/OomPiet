@@ -375,8 +375,8 @@ def initialize_new_user_dashboard_stats(email):
         "user_email": email,
         "total_chats": 0,
         "total_messages": 0,
-        "last_active": datetime.now(timezone.utc),
-        "created_at": datetime.now(timezone.utc)
+        "last_active": datetime.datetime.now(timezone.utc),
+        "created_at": datetime.datetime.now(timezone.utc)
     }
     dashboard_stats_collection.insert_one(stats)
     return stats
@@ -696,7 +696,7 @@ def microsoft_login():
     # Encode redirect URL in state parameter (survives Safari/Brave cookie blocking)
     state_data = {
         'redirect_url': redirect_url,
-        'timestamp': datetime.now(timezone.utc).isoformat() # type: ignore
+        'timestamp': datetime.datetime.now(timezone.utc).isoformat()
     }
 
     # Base64 encode the state data
@@ -719,13 +719,12 @@ def microsoft_login():
             session_id = cookie_value.split('.')[0] if '.' in cookie_value else cookie_value
             
             session_collection = client['geotech_db']['flask_sessions']
-            import pickle
-            from datetime import datetime, UTC
+            
             
             session_doc = {
                 'id': session_id,
                 'val': pickle.dumps(dict(session)),
-                'expiration': datetime.now(UTC) + timedelta(minutes=60)
+                'expiration': datetime.datetime.now(UTC) + timedelta(minutes=60)
             }
             
             result = session_collection.replace_one(
@@ -1239,7 +1238,7 @@ def proxy_rag():
         forward_payload['user_id'] = user_id
 
         # Persist the user's message first (so we always have the user's side recorded)
-        now = datetime.now(timezone.utc)
+        now = datetime.datetime.now(timezone.utc)
         try:
             user_doc = {
                 "conversation_id": conversation_id,
@@ -1274,7 +1273,7 @@ def proxy_rag():
                 assistant_doc = {
                     "conversation_id": conversation_id,
                     "collection_name": collection_name,
-                    "timestamp": datetime.now(timezone.utc),
+                    "timestamp": datetime.datetime.now(timezone.utc),
                     "query": None,
                     "answer": resp_json.get('answer'),
                     "model_used": resp_json.get('model_used'),
@@ -1384,7 +1383,7 @@ def share_conversation():
         # Mark all messages in this conversation as shared
         result = collection.update_many(
             {"conversation_id": conversation_id},
-            {"$set": {"is_shared": True, "shared_at": datetime.now(timezone.utc)}}
+            {"$set": {"is_shared": True, "shared_at": datetime.datetime.now(timezone.utc)}}
         )
         
         # Generate shareable link
