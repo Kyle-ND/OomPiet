@@ -281,7 +281,6 @@ def handle_signin(users_collection):
 
 
 
-
     
 
 def handle_recover_password(users_collection,email):
@@ -502,33 +501,51 @@ def handle_reset_password(users_collection):
     
 def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_dashboard_stats):
     """
-    UPDATED: Microsoft OAuth callback with Partitioned cookie support
+    FIXED: Microsoft OAuth callback with proper session recovery
     """
     current_app.logger.info("=== MICROSOFT CALLBACK START ===")
-    current_app.logger.info(f"Request cookies: {list(request.cookies.keys())}")
     
-    state_in_url = request.args.get('state')
-    current_app.logger.info(f"State in URL: {state_in_url}")
-
-    # Decode the state to get redirect_url (fixes the redirect issue)
-    redirect_url = "https://mentormate-client.vercel.app/microsoft-callback"  # Fallback
-    if state_in_url:
+    # Same recovery logic as Google
+    cookie_name = current_app.config.get('SESSION_COOKIE_NAME', 'mentormate_session')
+    session_cookie = request.cookies.get(cookie_name)
+    current_app.logger.info(f"Session cookie present: {session_cookie is not None}")
+    
+    # Check if session has required data
+    has_redirect = 'redirect_url' in session
+    current_app.logger.info(f"Session has redirect_url: {has_redirect}")
+    
+    # Recover session if needed
+    if not has_redirect and session_cookie:
+        current_app.logger.warning("Session empty, attempting recovery")
+        
         try:
-            decoded_state = base64.urlsafe_b64decode(state_in_url.encode('utf-8')).decode('utf-8')
-            state_data = json.loads(decoded_state)
-            redirect_url = state_data.get('redirect_url', redirect_url)
-            current_app.logger.info(f"Decoded redirect_url: {redirect_url}")
+            session_id = session_cookie.split('.')[0] if '.' in session_cookie else session_cookie
+            mongo_client = current_app.config.get('SESSION_MONGODB')
+            session_collection = mongo_client['geotech_db']['flask_sessions']
+            found_session = session_collection.find_one({"id": session_id})
+            
+            if found_session and found_session.get('val'):
+                import pickle
+                session_data = pickle.loads(found_session['val'])
+                
+                if 'redirect_url' in session_data:
+                    session['redirect_url'] = session_data['redirect_url']
+                    current_app.logger.info(f"✓ Recovered redirect_url")
+                
+                if 'oauth_provider' in session_data:
+                    session['oauth_provider'] = session_data['oauth_provider']
+                
+                session.modified = True
+                
         except Exception as e:
-            current_app.logger.warning(f"Failed to decode state: {e}")
+            current_app.logger.error(f"Session recovery failed: {e}")
     
-    
-    # Attempt to recover OAuth session
-    recover_oauth_session_from_cookies('microsoft', state_in_url)
+    redirect_url = session.get('redirect_url', 'https://mentormate-client.vercel.app/microsoft-callback')
     
     try:
         current_app.logger.info("Calling authorize_access_token()...")
         token = microsoft.authorize_access_token()
-        current_app.logger.info(f"Token received: {token is not None}")
+        current_app.logger.info(f"✓ Token received")
         
         if not token:
             raise ValueError("Failed to get access token")
@@ -536,20 +553,22 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         resp = microsoft.get('https://graph.microsoft.com/v1.0/me', token=token)
         user_info = resp.json()
         
-        if not user_info or 'mail' not in user_info and 'userPrincipalName' not in user_info:
-            raise ValueError("Failed to get user info from Microsoft")
+        if not user_info:
+            raise ValueError("Failed to get user info")
 
         user_email = user_info.get('mail') or user_info.get('userPrincipalName')
         
         if not user_email:
             raise ValueError("No email found in user info")
 
-        # Check and remove existing session
+        current_app.logger.info(f"User authenticated: {user_email}")
+
+        # Check for existing session
         active_session = AuthUtils.get_active_session_info(user_email)
         if active_session:
             AuthUtils.remove_user_session(user_email)
         
-        # Fetch profile picture
+        # Get profile picture
         profile_picture = get_microsoft_profile_picture(microsoft, token)
 
         user_data = {
@@ -571,10 +590,8 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
 
         db_user = users_collection.find_one({"email": user_data["email"]})
 
-        # Clear old session
+        # Clear and create new session
         session.clear()
-        
-        # Create new session
         session_id = AuthUtils.create_user_session(user_data["email"])
 
         session.permanent = True
@@ -588,28 +605,20 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         session['session_id'] = session_id
         session.modified = True
         
-        current_app.logger.info(f"Microsoft OAuth: Session created for {db_user['email']}")
+        current_app.logger.info(f"✓ Session created for {db_user['email']}")
         
-        # Create redirect with session token
-        # Extract session_id from cookie for fallback
-        session_cookie = request.cookies.get(current_app.config.get('SESSION_COOKIE_NAME', 'google-login-session'), '')
-        session_token = session_cookie.split('.')[0] if session_cookie else str(uuid.uuid4())
-        
+        # Build redirect
+        from urllib.parse import urlencode
         params = {
             "email": db_user["email"],
             "name": db_user["name"],
             "picture": db_user.get("picture", "/static/default-profile.png"),
-            "session_token": session_token
+            "auth_success": "true"
         }
         
-        from urllib.parse import urlencode
         final_redirect = f"{redirect_url}?{urlencode(params)}"
         
-        # CRITICAL: Save session BEFORE creating response
-        session.modified = True
-        session.permanent = True
-        
-        # Create HTML response with JavaScript redirect
+        # HTML response
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -648,13 +657,14 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         <body>
             <div class="loader">
                 <div class="spinner"></div>
-                <p>Signing in with Microsoft...</p>
+                <p>Completing sign in...</p>
             </div>
             <script>
-                // Small delay to ensure cookie is set
+                // Note: 500ms delay is intentional to ensure session/cookies are fully persisted
+                // and the response is processed before navigating, reducing race conditions on sign-in.
                 setTimeout(function() {{
                     window.location.href = '{final_redirect}';
-                }}, 100);
+                }}, 500);
             </script>
         </body>
         </html>
@@ -663,27 +673,20 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         response = make_response(html_content, 200)
         response.headers['Content-Type'] = 'text/html; charset=utf-8'
         
-        # Force session save with proper cookie attributes
         current_app.session_interface.save_session(current_app, session, response)
-        
-        # Add Partitioned attribute for Safari/Brave
         response = add_partitioned_to_response(response)
         
-        # Log cookie headers for debugging
-        set_cookie_headers = response.headers.getlist('Set-Cookie')
-        current_app.logger.info(f"📤 Response Set-Cookie headers: {len(set_cookie_headers)}")
-        for idx, cookie in enumerate(set_cookie_headers):
-            current_app.logger.info(f"   [{idx}] {cookie[:200]}")
-        
-        current_app.logger.info(f"Microsoft OAuth: Redirecting to {final_redirect[:100]}")
+        current_app.logger.info(f"✓ Redirecting to: {final_redirect[:100]}")
         return response
 
     except Exception as e:
-        current_app.logger.error(f"Error in Microsoft callback: {str(e)}")
+        current_app.logger.error(f"❌ Microsoft callback error: {str(e)}")
         import traceback
         current_app.logger.error(traceback.format_exc())
+        
         session.clear()
-        return redirect(f"{redirect_url}?error=auth_failed&message={str(e)}")
+        error_redirect = f"{redirect_url}?error=auth_failed&message={str(e)}"
+        return redirect(error_redirect)
     
     
 def get_microsoft_profile_picture(microsoft, token):
