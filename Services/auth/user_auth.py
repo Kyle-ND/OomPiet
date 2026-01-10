@@ -705,6 +705,13 @@ def get_microsoft_profile_picture(microsoft, token):
 
 
 def handle_google_callback(google, users_collection, initialize_new_user_dashboard_stats):
+        # Strict session cookie validation (robust parsing)
+        cookie_name = current_app.config.get('SESSION_COOKIE_NAME', 'google-login-session')
+        session_cookies = request.cookies.getlist(cookie_name)
+        if len(session_cookies) > 1:
+            current_app.logger.warning(f"Multiple {cookie_name} cookies detected: rejecting request for security.")
+            session.clear()
+            return redirect("/login?error=multiple_cookies_detected")
     """
     UPDATED: Google OAuth callback with Partitioned cookie support
     """
