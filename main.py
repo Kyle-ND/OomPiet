@@ -183,7 +183,7 @@ class JSONEncoder(json.JSONEncoder):
             return o.isoformat()
         return json.JSONEncoder.default(self, o)
 
-app.json_encoder = JSONEncoder
+
 
 # Start cleanup scheduler
 # schedule_cleanup()
@@ -1594,4 +1594,12 @@ def contact_email_endpoint():
     
 if __name__ == '__main__':
     # Create static folder if it doesn't exist
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000)
+
+# --- Startup check for OAuth client registration ---
+if google is None:
+    app.logger.error("Google OAuth client failed to initialize. Check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your .env file.")
+    raise RuntimeError("Google OAuth client not initialized. Fix your environment variables.")
+if microsoft is None:
+    app.logger.error("Microsoft OAuth client failed to initialize. Check MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET, MICROSOFT_TENANT_ID, and MICROSOFT_REDIRECT_URI in your .env file.")
+    raise RuntimeError("Microsoft OAuth client not initialized. Fix your environment variables.")
