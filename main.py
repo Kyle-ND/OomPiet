@@ -158,7 +158,8 @@ microsoft = oauth.register(
         'scope': 'openid email profile User.Read',
         'token_endpoint_auth_method': 'client_secret_post',
     },
-    server_metadata_url='https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration',
+    # Don't use server_metadata_url with /common - it causes issuer validation errors
+    # server_metadata_url='https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration',
 )
 
 SMTP_SERVER = os.getenv('SMTP_SERVER')
