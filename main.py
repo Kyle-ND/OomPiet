@@ -108,7 +108,7 @@ app.config['SESSION_KEY_PREFIX'] = 'session:'
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Required for cross-site cookies
 app.config['SESSION_COOKIE_SECURE'] = True  # Required for production HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_DOMAIN'] = None  # Let browser handle domain; set to '.mentormate.co.za' if using subdomains
+app.config['SESSION_COOKIE_DOMAIN'] = '.mentormate.co.za'  # Enable cookie sharing across all subdomains
 
 
 # Initialize Flask-Session (server-side sessions)
@@ -1029,7 +1029,7 @@ def get_history_chat(user_id):
                 formatted_session["messages"].append({
                     "query": msg.get("query"),
                     "answer": msg.get("answer"),
-                    "timestamp": msg.get("timestamp").isoformat() if isinstance(msg.get("timestamp"), datetime) else (str(msg.get("timestamp")) if msg.get("timestamp") else None),
+                    "timestamp": msg.get("timestamp").isoformat() if isinstance(msg.get("timestamp"), datetime.datetime) else (str(msg.get("timestamp")) if msg.get("timestamp") else None),
                     "model_used": msg.get("model_used"),
                     "role": msg.get("role")
                 })
@@ -1075,8 +1075,8 @@ def get_specific_session(user_id, conversation_id):
             "session_id": conversation_id,
             "user_id": user_id,
             "collection_name": messages[0].get("collection_name"),
-            "created_at": messages[0].get("timestamp").isoformat() if isinstance(messages[0].get("timestamp"), datetime) else (str(messages[0].get("timestamp")) if messages[0].get("timestamp") else None),
-            "last_activity": messages[-1].get("timestamp").isoformat() if isinstance(messages[-1].get("timestamp"), datetime) else (str(messages[-1].get("timestamp")) if messages[-1].get("timestamp") else None),
+            "created_at": messages[0].get("timestamp").isoformat() if isinstance(messages[0].get("timestamp"), datetime.datetime) else (str(messages[0].get("timestamp")) if messages[0].get("timestamp") else None),
+            "last_activity": messages[-1].get("timestamp").isoformat() if isinstance(messages[-1].get("timestamp"), datetime.datetime) else (str(messages[-1].get("timestamp")) if messages[-1].get("timestamp") else None),
             "message_count": len(messages),
             "messages": []
         }
@@ -1085,7 +1085,7 @@ def get_specific_session(user_id, conversation_id):
             message_data = {
                 "query": msg.get("query"),
                 "answer": msg.get("answer"),
-                "timestamp": msg.get("timestamp").isoformat() if isinstance(msg.get("timestamp"), datetime) else (str(msg.get("timestamp")) if msg.get("timestamp") else None),
+                "timestamp": msg.get("timestamp").isoformat() if isinstance(msg.get("timestamp"), datetime.datetime) else (str(msg.get("timestamp")) if msg.get("timestamp") else None),
                 "model_used": msg.get("model_used"),
                 "is_new_conversation": msg.get("is_new_conversation"),
                 "role": msg.get("role")
