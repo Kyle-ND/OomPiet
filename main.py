@@ -253,20 +253,7 @@ def test_cookie():
     # Force session save
     app.session_interface.save_session(app, session, response)
     
-    def microsoft_login():
-        """Microsoft OAuth login - robust session persistence and state management"""
-        old_cookie = request.cookies.get(app.config['SESSION_COOKIE_NAME'], '')
-        old_sid = old_cookie.split('.')[0] if old_cookie else None
-
-        if old_sid:
-            try:
-                session_collection = client['geotech_db']['flask_sessions']
-                existing = session_collection.find_one({"id": old_sid})
-                if existing:
-                    session_collection.delete_one({"id": old_sid})
-                    app.logger.info(f"Deleted old session: {old_sid[:20]}...")
-            except Exception as e:
-                app.logger.warning(f"Could not delete old session: {e}")
+    # ...existing code...
 
         session.clear()
         if MODE == 'development':
@@ -299,7 +286,7 @@ def test_cookie():
                 session_doc = {
                     'id': session_id,
                     'val': pickle.dumps(dict(session)),
-                    'expiration': datetime.datetime.now(UTC) + timedelta(minutes=60)
+                    'expiration': datetime.datetime.now(timezone.utc) + timedelta(minutes=60)
                 }
                 result = session_collection.replace_one(
                     {'id': session_id},
@@ -582,7 +569,7 @@ def microsoft_login():
             session_doc = {
                 'id': session_id,
                 'val': pickle.dumps(dict(session)),
-                'expiration': datetime.datetime.now(UTC) + timedelta(minutes=60)
+                'expiration': datetime.datetime.now(timezone.utc) + timedelta(minutes=60)
             }
             
             result = session_collection.replace_one(
@@ -611,7 +598,13 @@ def microsoft_callback():
 
 @app.route('/google/callback')
 def google_callback():
-    # ...existing code...
+    # Google OAuth callback
+    state_in_url = request.args.get('state')
+    state_in_session = session.get('oauth_state')
+    app.logger.info(f"State in URL: {state_in_url}")
+    app.logger.info(f"State in session: {state_in_session}")
+    if not state_in_session or state_in_url != state_in_session:
+        app.logger.warning(f"State mismatch: session={state_in_session}, url={state_in_url}")
     state_in_url = request.args.get('state')
     state_in_session = session.get('oauth_state')
     app.logger.info(f"State in URL: {state_in_url}")
