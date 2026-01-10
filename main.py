@@ -244,53 +244,9 @@ def test_cookie():
     session.modified = True
     
     # Create response
-    response = jsonify({
-        'message': 'Cookie test endpoint',
-        'session_id': getattr(session, 'sid', 'NO SID'),
-        'instructions': 'Check the Response Headers in DevTools for Set-Cookie header'
-    })
-    
     # Force session save
     app.session_interface.save_session(app, session, response)
-    
-    # ...existing code...
-
-        session.clear()
-        if MODE == 'development':
-            redirect_url = "http://localhost:3000/microsoft-callback"
-        else:
-            redirect_url = "https://mentormate-client.vercel.app/microsoft-callback"
-
-        # Encode redirect URL in state parameter
-        state_data = {
-            'redirect_url': redirect_url,
-            'timestamp': datetime.datetime.now(timezone.utc).isoformat()
-        }
-        encoded_state = base64.urlsafe_b64encode(
-            json.dumps(state_data).encode('utf-8')
-        ).decode('utf-8')
-
-        session['redirect_url'] = redirect_url
-
-        redirect_uri = url_for('microsoft_callback', _external=True)
-        response = microsoft.authorize_redirect(redirect_uri=redirect_uri, state=encoded_state)
-
-        session.modified = True
-        try:
-            app.session_interface.save_session(app, session, response)
-            cookie_header = response.headers.get('Set-Cookie', '')
-            if 'google-login-session=' in cookie_header:
-                cookie_value = cookie_header.split('google-login-session=')[1].split(';')[0]
-                session_id = cookie_value.split('.')[0] if '.' in cookie_value else cookie_value
-                session_collection = client['geotech_db']['flask_sessions']
-                session_doc = {
-                    'id': session_id,
-                    'val': pickle.dumps(dict(session)),
-                    'expiration': datetime.datetime.now(timezone.utc) + timedelta(minutes=60)
-                }
-                result = session_collection.replace_one(
-                    {'id': session_id},
-                    session_doc,
+    return response
                     upsert=True
                 )
                 if result.acknowledged:
@@ -493,11 +449,11 @@ def login():
             session_collection = client['geotech_db']['flask_sessions']
             
             
-                session_doc = {
-                    'id': session_id,
-                    'val': pickle.dumps(dict(session)),
-                    'expiration': datetime.datetime.now(timezone.utc) + timedelta(minutes=60)
-                }
+            session_doc = {
+                'id': session_id,
+                'val': pickle.dumps(dict(session)),
+                'expiration': datetime.datetime.now(timezone.utc) + timedelta(minutes=60)
+            }
             
             result = session_collection.replace_one(
                 {'id': session_id},
