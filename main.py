@@ -409,27 +409,15 @@ def login():
     else:
         redirect_url = "https://mentormate-client.vercel.app/google-callback"
 
-    
-    # Encode redirect URL in state parameter
-    state_data = {
-        'redirect_url': redirect_url,
-        'timestamp': datetime.datetime.now(timezone.utc).isoformat()
-    }
-    encoded_state = base64.urlsafe_b64encode(
-        json.dumps(state_data).encode('utf-8')
-    ).decode('utf-8')
-    # Store redirect URL in session (state itself is handled via the OAuth flow)
+    # Store redirect URL in session for callback to use
     session['redirect_url'] = redirect_url
-
+    session['oauth_provider'] = 'google'
    
     redirect_uri = url_for('google_callback', _external=True)
     
-    # Let Authlib handle state
-    # Pass custom state to Authlib
-    response = google.authorize_redirect(
-        redirect_uri=redirect_uri,
-        state=encoded_state
-    )
+    # Let Authlib generate and manage state automatically
+    # Do NOT pass custom state - Authlib will store it in session
+    response = google.authorize_redirect(redirect_uri=redirect_uri)
     
     # Force session save
     session.modified = True
@@ -491,21 +479,14 @@ def microsoft_login():
     else:
         redirect_url = "https://mentormate-client.vercel.app/microsoft-callback"
 
-    # Encode redirect URL in state parameter (survives Safari/Brave cookie blocking)
-    state_data = {
-        'redirect_url': redirect_url,
-        'timestamp': datetime.datetime.now(timezone.utc).isoformat()
-    }
-
-    # Base64 encode the state data
-    encoded_state = base64.urlsafe_b64encode(
-        json.dumps(state_data).encode('utf-8')
-    ).decode('utf-8')
-
+    # Store redirect URL in session for callback to use
     session['redirect_url'] = redirect_url
+    session['oauth_provider'] = 'microsoft'
     
     redirect_uri = url_for('microsoft_callback', _external=True)
-    response = microsoft.authorize_redirect(redirect_uri=redirect_uri, state=encoded_state)
+    
+    # Let Authlib generate and manage state automatically
+    response = microsoft.authorize_redirect(redirect_uri=redirect_uri)
     
     session.modified = True
     try:
