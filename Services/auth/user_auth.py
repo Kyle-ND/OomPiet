@@ -591,7 +591,9 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         current_app.logger.info(f"Microsoft OAuth: Session created for {db_user['email']}")
         
         # Create redirect with session token
-        session_token = session.sid if hasattr(session, 'sid') else str(uuid.uuid4())
+        # Extract session_id from cookie for fallback
+        session_cookie = request.cookies.get(current_app.config.get('SESSION_COOKIE_NAME', 'google-login-session'), '')
+        session_token = session_cookie.split('.')[0] if session_cookie else str(uuid.uuid4())
         
         params = {
             "email": db_user["email"],
@@ -705,16 +707,16 @@ def get_microsoft_profile_picture(microsoft, token):
 
 
 def handle_google_callback(google, users_collection, initialize_new_user_dashboard_stats):
-        # Strict session cookie validation (robust parsing)
-        cookie_name = current_app.config.get('SESSION_COOKIE_NAME', 'google-login-session')
-        session_cookies = request.cookies.getlist(cookie_name)
-        if len(session_cookies) > 1:
-            current_app.logger.warning(f"Multiple {cookie_name} cookies detected: rejecting request for security.")
-            session.clear()
-            return redirect("/login?error=multiple_cookies_detected")
     """
     UPDATED: Google OAuth callback with Partitioned cookie support
     """
+    # Strict session cookie validation (robust parsing)
+    cookie_name = current_app.config.get('SESSION_COOKIE_NAME', 'google-login-session')
+    session_cookies = request.cookies.getlist(cookie_name)
+    if len(session_cookies) > 1:
+        current_app.logger.warning(f"Multiple {cookie_name} cookies detected: rejecting request for security.")
+        session.clear()
+        return redirect("/login?error=multiple_cookies_detected")
     current_app.logger.info("=== GOOGLE CALLBACK START ===")
     current_app.logger.info(f"Request cookies: {list(request.cookies.keys())}")
     current_app.logger.info(f"Session contains user: {'user' in session}")
@@ -807,7 +809,9 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         current_app.logger.info(f"Google OAuth: Session created for {db_user['email']}")
         
         # Create session token for fallback
-        session_token = session.sid if hasattr(session, 'sid') else str(uuid.uuid4())
+        # Extract session_id from cookie for fallback
+        session_cookie = request.cookies.get(current_app.config.get('SESSION_COOKIE_NAME', 'google-login-session'), '')
+        session_token = session_cookie.split('.')[0] if session_cookie else str(uuid.uuid4())
         
         # Build redirect URL with URL encoding
         from urllib.parse import urlencode
