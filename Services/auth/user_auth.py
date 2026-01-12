@@ -548,15 +548,50 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
     redirect_url = session.get('redirect_url', 'https://mentormate-client.vercel.app/microsoft-callback')
     
     try:
-        current_app.logger.info("Calling authorize_access_token()...")
-        token = microsoft.authorize_access_token()
+        current_app.logger.info("Exchanging authorization code for token...")
+        
+        # CRITICAL FIX: Microsoft /common endpoint causes "Invalid claim iss" error
+        # when Authlib tries to validate ID token because tenant-specific issuer 
+        # doesn't match /common metadata. Solution: Manually exchange code for token
+        # and skip ID token validation.
+        
+        code = request.args.get('code')
+        if not code:
+            raise ValueError("No authorization code received")
+        
+        # Manually exchange code for access token (bypass Authlib's ID token validation)
+        token_url = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
+        redirect_uri = url_for('microsoft_callback', _external=True)
+        
+        token_response = requests.post(token_url, data={
+            'client_id': microsoft.client_id,
+            'client_secret': microsoft.client_secret,
+            'code': code,
+            'redirect_uri': redirect_uri,
+            'grant_type': 'authorization_code',
+        })
+        
+        if token_response.status_code != 200:
+            current_app.logger.error(f"Token exchange failed: {token_response.text}")
+            raise ValueError(f"Token exchange failed: {token_response.status_code}")
+        
+        token = token_response.json()
         current_app.logger.info(f"✓ Token received")
         
-        if not token:
+        if not token or 'access_token' not in token:
             raise ValueError("Failed to get access token")
 
-        resp = microsoft.get('https://graph.microsoft.com/v1.0/me', token=token)
-        user_info = resp.json()
+        # Get user info from Microsoft Graph API using the access token
+        graph_response = requests.get(
+            'https://graph.microsoft.com/v1.0/me',
+            headers={'Authorization': f"Bearer {token['access_token']}"}
+        )
+        
+        if graph_response.status_code != 200:
+            current_app.logger.error(f"Graph API call failed: {graph_response.text}")
+            raise ValueError(f"Failed to get user info: {graph_response.status_code}")
+        
+        user_info = graph_response.json()
         
         if not user_info:
             raise ValueError("Failed to get user info")
@@ -574,7 +609,7 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
             AuthUtils.remove_user_session(user_email)
         
         # Get profile picture
-        profile_picture = get_microsoft_profile_picture(microsoft, token)
+        profile_picture = get_microsoft_profile_picture(token)
 
         user_data = {
             "name": user_info.get("displayName", "User"),
@@ -701,13 +736,13 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
         return redirect(error_redirect)
     
     
-def get_microsoft_profile_picture(microsoft, token):
+def get_microsoft_profile_picture(token):
     """Fetch user's profile picture from Microsoft Graph"""
     try:
-        # Try to get the photo
-        photo_resp = microsoft.get(
+        # Try to get the photo using raw token dict
+        photo_resp = requests.get(
             'https://graph.microsoft.com/v1.0/me/photo/$value',
-            token=token
+            headers={'Authorization': f"Bearer {token['access_token']}"}
         )
         
         if photo_resp.status_code == 200:
@@ -907,10 +942,21 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
                 <p>Signing in with Google...</p>
             </div>
             <script>
-                // Small delay to ensure cookie is set
+                // CRITICAL: Store session token in localStorage as fallback
+                // This helps when cookies are blocked by browser privacy settings
+                try {{
+                    localStorage.setItem('mentormate_session_token', '{session_token}');
+                    localStorage.setItem('mentormate_session_email', '{db_user["email"]}');
+                    console.log('✓ Session token stored in localStorage as fallback');
+                }} catch (e) {{
+                    console.warn('localStorage not available:', e);
+                }}
+                
+                // Increased delay to 500ms to ensure cookie is committed to browser storage
+                // 100ms was too short for Chrome to process Set-Cookie headers
                 setTimeout(function() {{
                     window.location.href = '{final_redirect}';
-                }}, 100);
+                }}, 500);
             </script>
         </body>
         </html>

@@ -1,6 +1,7 @@
 from datetime import timezone,timedelta,datetime,UTC
 import pickle
 import datetime
+import traceback
 from xmlrpc.client import _datetime
 from bson import ObjectId
 from flask import Flask, jsonify, redirect, render_template, request, url_for, session, send_from_directory
@@ -110,7 +111,9 @@ app.config['SESSION_KEY_PREFIX'] = 'session:'
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Required for cross-site cookies
 app.config['SESSION_COOKIE_SECURE'] = True  # Required for production HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_DOMAIN'] = '.mentormate.co.za'  # Enable cookie sharing across all subdomains
+# CRITICAL: Removed SESSION_COOKIE_DOMAIN to let browser set cookie for exact host
+# Setting Domain=.mentormate.co.za causes issues with cross-origin requests
+# app.config['SESSION_COOKIE_DOMAIN'] = '.mentormate.co.za'
 
 
 # Initialize Flask-Session (server-side sessions)
@@ -158,7 +161,8 @@ microsoft = oauth.register(
         'scope': 'openid email profile User.Read',
         'token_endpoint_auth_method': 'client_secret_post',
     },
-    server_metadata_url='https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration',
+    # NOTE: Not using server_metadata_url with /common because it causes issuer validation errors
+    # We manually exchange the authorization code for tokens in the callback handler
 )
 
 SMTP_SERVER = os.getenv('SMTP_SERVER')
@@ -333,7 +337,7 @@ def check_session():
                     
                     if found_session and found_session.get('val'):
                         # Deserialize session data
-                        import pickle
+                        # SECURITY NOTE: Flask-Session uses pickle - see security comment in verify_session_token
                         session_data = pickle.loads(found_session['val'])
                         
                         if 'user' in session_data:
@@ -357,6 +361,112 @@ def check_session():
     }
     
     return jsonify(response_data), 200
+
+
+@app.route('/api/verify-session-token', methods=['POST'])
+def verify_session_token():
+    """
+    FALLBACK: When cookies are blocked, frontend can send session_token from localStorage
+    This endpoint looks up the session in MongoDB and sets a cookie if valid
+    """
+    try:
+        data = request.get_json()
+        session_token = data.get('session_token')
+        
+        if not session_token:
+            return jsonify({'authenticated': False, 'error': 'No session token provided'}), 400
+        
+        app.logger.info(f"🔑 Verifying session token from localStorage: {session_token[:20]}...")
+        
+        # Look up session in MongoDB
+        session_collection = client['geotech_db']['flask_sessions']
+        found_session = session_collection.find_one({"id": session_token})
+        
+        if not found_session or not found_session.get('val'):
+            app.logger.warning(f"Session token not found in MongoDB: {session_token[:20]}")
+            return jsonify({'authenticated': False, 'error': 'Invalid or expired session'}), 401
+        
+        # Check if session is expired
+        if found_session.get('expiration'):
+            expiration = found_session['expiration']
+            if expiration < datetime.datetime.now(timezone.utc):
+                app.logger.warning(f"Session token expired: {session_token[:20]}")
+                return jsonify({'authenticated': False, 'error': 'Session expired'}), 401
+        
+        # Deserialize session data
+        # SECURITY NOTE: Flask-Session uses pickle by default for MongoDB storage.
+        # This is a known limitation - pickle.loads() on untrusted data is dangerous.
+        # Mitigation: Ensure MongoDB has strong access controls and network isolation.
+        # Future: Consider switching to Flask-Session with JSON serializer or JWT tokens.
+        session_data = pickle.loads(found_session['val'])
+        
+        if 'user' not in session_data:
+            app.logger.warning(f"Session has no user data: {session_token[:20]}")
+            return jsonify({'authenticated': False, 'error': 'Invalid session'}), 401
+        
+        # Set session data
+        session.clear()
+        session.permanent = True
+        session['user'] = session_data['user']
+        session['session_id'] = session_data.get('session_id')
+        session.modified = True
+        
+        app.logger.info(f"✓ Session restored from localStorage for {session_data['user']['email']}")
+        
+        # Parse name for frontend
+        user_data = session_data['user']
+        name = user_data.get('name', '')
+        name_parts = name.split(' ', 1)
+        user_data['firstName'] = name_parts[0] if name_parts else ''
+        user_data['lastName'] = name_parts[1] if len(name_parts) > 1 else ''
+        
+        return jsonify({
+            'authenticated': True,
+            'user': user_data,
+            'message': 'Session restored from localStorage'
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error verifying session token: {e}")
+        app.logger.error(traceback.format_exc())
+        return jsonify({'authenticated': False, 'error': 'Internal error'}), 500
+
+
+@app.route('/api/test-cookie', methods=['GET'])
+def test_cookie_endpoint():
+    """
+    Test if browser accepts cookies - useful for debugging cross-origin cookie issues
+    """
+    response = jsonify({'message': 'Cookie test endpoint'})
+    response.set_cookie(
+        'test-cookie',
+        value='test-value',
+        max_age=60,
+        secure=True,
+        httponly=True,
+        samesite='None'
+    )
+    app.logger.info("Set test cookie")
+    return response
+
+
+@app.route('/api/check-test-cookie', methods=['GET'])
+def check_test_cookie_endpoint():
+    """
+    Check if test cookie was received
+    """
+    test_cookie = request.cookies.get('test-cookie')
+    cookie_header = request.headers.get('Cookie', '')
+    
+    result = {
+        'cookie_received': test_cookie is not None,
+        'cookie_value': test_cookie,
+        'cookie_header_present': bool(cookie_header),
+        'all_cookies': dict(request.cookies)
+    }
+    
+    app.logger.info(f"Test cookie check: {result}")
+    return jsonify(result)
 
 
 @app.route('/api/signin', methods=['POST'])
