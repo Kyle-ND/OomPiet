@@ -237,29 +237,6 @@ def initialize_new_user_dashboard_stats(email):
     dashboard_stats_collection.insert_one(stats)
     return stats
 
-#Testing endpoints
-@app.route('/test-cookie', methods=['GET'])
-def test_cookie():
-    """
-    Diagnostic endpoint to test if cookies are being set correctly with Partitioned attribute.
-    Visit this in Safari/Brave to check the response headers.
-    """
-    # Set a test session value
-    session['test'] = 'cookie_test_value'
-    session.permanent = True
-    session.modified = True
-    
-    # Create response
-    response = jsonify({
-        'message': 'Cookie test endpoint',
-        'session_id': getattr(session, 'sid', 'NO SID'),
-        'instructions': 'Check the Response Headers in DevTools for Set-Cookie header'
-    })
-    
-    # Force session save
-    app.session_interface.save_session(app, session, response)
-    return response
-
 """I will remove this function once we have a dedicated Util func"""
 def get_login_identifier():
     ip = get_remote_address()
@@ -271,7 +248,6 @@ def get_login_identifier():
 # --- Modified Signup Endpoint ---
 @app.route('/api/signup', methods=['POST'])
 @limiter.limit("3 per minute",  key_func= get_login_identifier,error_message="Too many signup's. Please wait a moment and try again.")
-@limiter.limit("3 per minute",  key_func= get_remote_address)
 def signup():
     return UserAuth.handle_signup(users_collection, initialize_new_user_dashboard_stats)
 
@@ -394,11 +370,22 @@ def verify_session_token():
                 return jsonify({'authenticated': False, 'error': 'Session expired'}), 401
         
         # Deserialize session data
-        # SECURITY NOTE: Flask-Session uses pickle by default for MongoDB storage.
-        # This is a known limitation - pickle.loads() on untrusted data is dangerous.
-        # Mitigation: Ensure MongoDB has strong access controls and network isolation.
-        # Future: Consider switching to Flask-Session with JSON serializer or JWT tokens.
-        session_data = pickle.loads(found_session['val'])
+        # SECURITY: Using JSON instead of pickle to prevent arbitrary code execution
+        # JSON is safe and only supports basic data types (str, int, bool, list, dict)
+        try:
+            raw_val = found_session['val']
+            # Ensure JSON deserialization always receives text, not raw bytes
+            if isinstance(raw_val, bytes):
+                raw_val = raw_val.decode('utf-8')
+            session_data = json.loads(raw_val)
+        except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
+            # Fallback to pickle for legacy sessions (will be phased out)
+            app.logger.warning(f"Legacy pickle session detected: {session_token[:20]}")
+            legacy_val = found_session['val']
+            # Ensure pickle deserialization receives bytes
+            if isinstance(legacy_val, str):
+                legacy_val = legacy_val.encode('utf-8')
+            session_data = pickle.loads(legacy_val)
         
         if 'user' not in session_data:
             app.logger.warning(f"Session has no user data: {session_token[:20]}")
@@ -430,43 +417,6 @@ def verify_session_token():
         app.logger.error(f"Error verifying session token: {e}")
         app.logger.error(traceback.format_exc())
         return jsonify({'authenticated': False, 'error': 'Internal error'}), 500
-
-
-@app.route('/api/test-cookie', methods=['GET'])
-def test_cookie_endpoint():
-    """
-    Test if browser accepts cookies - useful for debugging cross-origin cookie issues
-    """
-    response = jsonify({'message': 'Cookie test endpoint'})
-    response.set_cookie(
-        'test-cookie',
-        value='test-value',
-        max_age=60,
-        secure=True,
-        httponly=True,
-        samesite='None'
-    )
-    app.logger.info("Set test cookie")
-    return response
-
-
-@app.route('/api/check-test-cookie', methods=['GET'])
-def check_test_cookie_endpoint():
-    """
-    Check if test cookie was received
-    """
-    test_cookie = request.cookies.get('test-cookie')
-    cookie_header = request.headers.get('Cookie', '')
-    
-    result = {
-        'cookie_received': test_cookie is not None,
-        'cookie_value': test_cookie,
-        'cookie_header_present': bool(cookie_header),
-        'all_cookies': dict(request.cookies)
-    }
-    
-    app.logger.info(f"Test cookie check: {result}")
-    return jsonify(result)
 
 
 @app.route('/api/signin', methods=['POST'])
@@ -519,7 +469,7 @@ def login():
     if MODE == 'development':
         redirect_url = "http://localhost:3000/google-callback"
     else:
-        redirect_url = "https://mentormate-client.vercel.app/google-callback"
+        redirect_url = "https://mentormate.co.za/google-callback"
 
     # Create stateless state parameter (doesn't rely on session/cookies)
     # This works even when browsers block cookies during OAuth redirect
@@ -609,7 +559,7 @@ def microsoft_login():
     if MODE == 'development':
         redirect_url = "http://localhost:3000/microsoft-callback"
     else:
-        redirect_url = "https://mentormate-client.vercel.app/microsoft-callback"
+        redirect_url = "https://mentormate.co.za/microsoft-callback"
 
     # Create stateless state parameter (doesn't rely on session/cookies)
     state_data = {
@@ -716,7 +666,7 @@ def logout():
     if request.method == 'POST' or request.headers.get('Content-Type') == 'application/json':
         response = jsonify({"success": True, "message": "Logged out successfully"})
     else:
-        response = redirect("https://mentormate-client.vercel.app/mentormate-homepage")
+        response = redirect("https://mentormate.co.za/mentormate-homepage")
     
     # CRITICAL: Explicitly delete the session cookie by setting Max-Age=0
     # This prevents duplicate cookie issues on re-login
@@ -745,40 +695,6 @@ def invalidate_session():
     """Invalidate current session (called when user logs in from another device)"""
     return UserAuth.handle_invalidate_session()
 
-@app.route('/api/clear-all-sessions', methods=['POST'])
-def clear_all_sessions():
-    """Clear all sessions from MongoDB - useful for testing clean state"""
-    try:
-        session_collection = client['geotech_db']['flask_sessions']
-        result = session_collection.delete_many({})
-        
-        # Also clear current session
-        session.clear()
-        
-        response = jsonify({
-            "success": True,
-            "message": f"Cleared {result.deleted_count} sessions from MongoDB",
-            "deleted_count": result.deleted_count
-        })
-        
-        # Delete cookie
-        response.set_cookie(
-            app.config['SESSION_COOKIE_NAME'],
-            value='',
-            max_age=0,
-            secure=True,
-            httponly=True,
-            samesite='None',
-            path='/'
-        )
-        
-        app.logger.info(f"Cleared {result.deleted_count} sessions from MongoDB")
-        return response, 200
-        
-    except Exception as e:
-        app.logger.error(f"Error clearing sessions: {e}")
-        return jsonify({"error": str(e)}), 500
-
 # Session conflict route removed - React frontend handles this via API
 
 @app.route('/api/force-login', methods=['POST'])
@@ -801,7 +717,7 @@ def pay_success():
 @login_required
 def pay_cancel():
     # Redirect to React frontend with cancellation message
-    return redirect("https://mentormate-client.vercel.app/payment-cancelled")
+    return redirect("https://mentormate.co.za/payment-cancelled")
 
 @app.route('/pay/notify', methods=['POST'])
 def pay_notify():
@@ -814,7 +730,14 @@ def unsubscribe():
 
 
 @app.route("/chat_history/<user_id>", methods=["GET"])
+@login_required
 def get_history_chat(user_id):
+    # SECURITY: Verify user_id matches authenticated user
+    auth_user = session.get('user', {})
+    auth_user_id = auth_user.get('id') or auth_user.get('email')
+    
+    if user_id != auth_user_id:
+        return jsonify({"error": "Unauthorized: Cannot access other users' chat history"}), 403
     
     try:
         collection_name = request.args.get("collection_name")
@@ -908,7 +831,19 @@ def get_history_chat(user_id):
     
 
 @app.route("/chat_history/<user_id>/session/<conversation_id>", methods=["GET"])
+@login_required
 def get_specific_session(user_id, conversation_id):
+    # SECURITY: Verify user_id matches authenticated user
+    auth_user = session.get('user', {})
+    auth_user_id = auth_user.get('id') or auth_user.get('email')
+
+    # Normalize IDs to prevent case-sensitivity bypass (e.g., with email addresses)
+    normalized_user_id = (str(user_id).strip().lower()) if user_id is not None else None
+    normalized_auth_user_id = (str(auth_user_id).strip().lower()) if auth_user_id is not None else None
+
+    if not normalized_auth_user_id or normalized_user_id != normalized_auth_user_id:
+        return jsonify({"error": "Unauthorized: Cannot access other users' sessions"}), 403
+    
     try:
         # Verify the conversation belongs to this user (conversation ids start with conv_<user_id>)
         expected_prefix = f"conv_{user_id}"
@@ -966,7 +901,18 @@ def get_specific_session(user_id, conversation_id):
     
 
 @app.route("/chat_history/<user_id>/delete", methods=["DELETE"])
+@login_required
 def delete_chat_history(user_id):
+    # SECURITY: Verify user_id matches authenticated user (normalize to prevent case-based bypass)
+    auth_user = session.get('user', {})
+    auth_user_id = auth_user.get('id') or auth_user.get('email')
+    
+    normalized_path_user_id = str(user_id).strip().lower()
+    normalized_auth_user_id = str(auth_user_id).strip().lower() if auth_user_id is not None else None
+    
+    if normalized_auth_user_id is None or normalized_path_user_id != normalized_auth_user_id:
+        return jsonify({"error": "Unauthorized: Cannot delete other users' chat history"}), 403
+    
     try:
         conversation_id_param = request.args.get('conversation_id')
         collection_name_filter = request.args.get('collection_name')
