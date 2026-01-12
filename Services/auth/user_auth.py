@@ -871,6 +871,7 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         <html>
         <head>
             <meta charset="UTF-8">
+            <meta http-equiv="Set-Cookie" content="google-login-session={session_token}; SameSite=None; Secure">
             <title>Signing in...</title>
             <style>
                 body {{
@@ -907,10 +908,21 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
                 <p>Signing in with Google...</p>
             </div>
             <script>
-                // Small delay to ensure cookie is set
+                // CRITICAL: Store session token in localStorage as fallback
+                // This helps when cookies are blocked by browser privacy settings
+                try {{
+                    localStorage.setItem('mentormate_session_token', '{session_token}');
+                    localStorage.setItem('mentormate_session_email', '{db_user["email"]}');
+                    console.log('✓ Session token stored in localStorage as fallback');
+                }} catch (e) {{
+                    console.warn('localStorage not available:', e);
+                }}
+                
+                // Increased delay to 500ms to ensure cookie is committed to browser storage
+                // 100ms was too short for Chrome to process Set-Cookie headers
                 setTimeout(function() {{
                     window.location.href = '{final_redirect}';
-                }}, 100);
+                }}, 500);
             </script>
         </body>
         </html>
