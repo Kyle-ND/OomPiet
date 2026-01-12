@@ -373,11 +373,19 @@ def verify_session_token():
         # SECURITY: Using JSON instead of pickle to prevent arbitrary code execution
         # JSON is safe and only supports basic data types (str, int, bool, list, dict)
         try:
-            session_data = json.loads(found_session['val'])
-        except (json.JSONDecodeError, TypeError):
+            raw_val = found_session['val']
+            # Ensure JSON deserialization always receives text, not raw bytes
+            if isinstance(raw_val, bytes):
+                raw_val = raw_val.decode('utf-8')
+            session_data = json.loads(raw_val)
+        except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
             # Fallback to pickle for legacy sessions (will be phased out)
             app.logger.warning(f"Legacy pickle session detected: {session_token[:20]}")
-            session_data = pickle.loads(found_session['val'])
+            legacy_val = found_session['val']
+            # Ensure pickle deserialization receives bytes
+            if isinstance(legacy_val, str):
+                legacy_val = legacy_val.encode('utf-8')
+            session_data = pickle.loads(legacy_val)
         
         if 'user' not in session_data:
             app.logger.warning(f"Session has no user data: {session_token[:20]}")
