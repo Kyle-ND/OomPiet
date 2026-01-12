@@ -871,7 +871,6 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         <html>
         <head>
             <meta charset="UTF-8">
-            <meta http-equiv="Set-Cookie" content="google-login-session={session_token}; SameSite=None; Secure">
             <title>Signing in...</title>
             <style>
                 body {{

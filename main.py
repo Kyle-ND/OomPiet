@@ -1,6 +1,7 @@
 from datetime import timezone,timedelta,datetime,UTC
 import pickle
 import datetime
+import traceback
 from xmlrpc.client import _datetime
 from bson import ObjectId
 from flask import Flask, jsonify, redirect, render_template, request, url_for, session, send_from_directory
@@ -336,7 +337,7 @@ def check_session():
                     
                     if found_session and found_session.get('val'):
                         # Deserialize session data
-                        import pickle
+                        # SECURITY NOTE: Flask-Session uses pickle - see security comment in verify_session_token
                         session_data = pickle.loads(found_session['val'])
                         
                         if 'user' in session_data:
@@ -387,14 +388,16 @@ def verify_session_token():
         
         # Check if session is expired
         if found_session.get('expiration'):
-            from datetime import datetime, timezone
             expiration = found_session['expiration']
-            if expiration < datetime.now(timezone.utc):
+            if expiration < datetime.datetime.now(timezone.utc):
                 app.logger.warning(f"Session token expired: {session_token[:20]}")
                 return jsonify({'authenticated': False, 'error': 'Session expired'}), 401
         
         # Deserialize session data
-        import pickle
+        # SECURITY NOTE: Flask-Session uses pickle by default for MongoDB storage.
+        # This is a known limitation - pickle.loads() on untrusted data is dangerous.
+        # Mitigation: Ensure MongoDB has strong access controls and network isolation.
+        # Future: Consider switching to Flask-Session with JSON serializer or JWT tokens.
         session_data = pickle.loads(found_session['val'])
         
         if 'user' not in session_data:
@@ -425,7 +428,6 @@ def verify_session_token():
         
     except Exception as e:
         app.logger.error(f"Error verifying session token: {e}")
-        import traceback
         app.logger.error(traceback.format_exc())
         return jsonify({'authenticated': False, 'error': 'Internal error'}), 500
 
