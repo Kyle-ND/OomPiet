@@ -836,8 +836,12 @@ def get_specific_session(user_id, conversation_id):
     # SECURITY: Verify user_id matches authenticated user
     auth_user = session.get('user', {})
     auth_user_id = auth_user.get('id') or auth_user.get('email')
-    
-    if user_id != auth_user_id:
+
+    # Normalize IDs to prevent case-sensitivity bypass (e.g., with email addresses)
+    normalized_user_id = (str(user_id).strip().lower()) if user_id is not None else None
+    normalized_auth_user_id = (str(auth_user_id).strip().lower()) if auth_user_id is not None else None
+
+    if not normalized_auth_user_id or normalized_user_id != normalized_auth_user_id:
         return jsonify({"error": "Unauthorized: Cannot access other users' sessions"}), 403
     
     try:
