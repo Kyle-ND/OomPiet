@@ -519,7 +519,7 @@ def login():
     if MODE == 'development':
         redirect_url = "http://localhost:3000/google-callback"
     else:
-        redirect_url = "https://mentormate-client.vercel.app/google-callback"
+        redirect_url = "https://mentormate.co.za/google-callback"
 
     # Create stateless state parameter (doesn't rely on session/cookies)
     # This works even when browsers block cookies during OAuth redirect
@@ -609,7 +609,7 @@ def microsoft_login():
     if MODE == 'development':
         redirect_url = "http://localhost:3000/microsoft-callback"
     else:
-        redirect_url = "https://mentormate-client.vercel.app/microsoft-callback"
+        redirect_url = "https://mentormate.co.za/microsoft-callback"
 
     # Create stateless state parameter (doesn't rely on session/cookies)
     state_data = {
@@ -716,7 +716,7 @@ def logout():
     if request.method == 'POST' or request.headers.get('Content-Type') == 'application/json':
         response = jsonify({"success": True, "message": "Logged out successfully"})
     else:
-        response = redirect("https://mentormate-client.vercel.app/mentormate-homepage")
+        response = redirect("https://mentormate.co.za/mentormate-homepage")
     
     # CRITICAL: Explicitly delete the session cookie by setting Max-Age=0
     # This prevents duplicate cookie issues on re-login
@@ -801,7 +801,7 @@ def pay_success():
 @login_required
 def pay_cancel():
     # Redirect to React frontend with cancellation message
-    return redirect("https://mentormate-client.vercel.app/payment-cancelled")
+    return redirect("https://mentormate.co.za/payment-cancelled")
 
 @app.route('/pay/notify', methods=['POST'])
 def pay_notify():

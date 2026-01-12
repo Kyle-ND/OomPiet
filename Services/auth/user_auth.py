@@ -545,7 +545,7 @@ def handle_microsoft_callback(microsoft, users_collection, initialize_new_user_d
             except Exception as e:
                 current_app.logger.error(f"Session recovery failed: {e}")
     
-    redirect_url = session.get('redirect_url', 'https://mentormate-client.vercel.app/microsoft-callback')
+    redirect_url = session.get('redirect_url', 'https://mentormate.co.za/microsoft-callback')
     
     try:
         current_app.logger.info("Exchanging authorization code for token...")
@@ -771,7 +771,7 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
     signed_state = request.args.get('state')
     if not signed_state:
         current_app.logger.error("No state parameter in callback")
-        return redirect("https://mentormate-client.vercel.app/login?error=missing_state")
+        return redirect("https://mentormate.co.za/login?error=missing_state")
     
     # Validate and decode state
     try:
@@ -796,14 +796,14 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         state_json = base64.urlsafe_b64decode(state_b64.encode()).decode()
         state_data = json.loads(state_json)
         
-        redirect_url = state_data.get('redirect_url', 'https://mentormate-client.vercel.app/google-callback')
+        redirect_url = state_data.get('redirect_url', 'https://mentormate.co.za/google-callback')
         provider = state_data.get('provider', 'google')
         
         current_app.logger.info(f"✓ State validated: provider={provider}, redirect={redirect_url}")
         
     except Exception as e:
         current_app.logger.error(f"State validation failed: {e}")
-        return redirect("https://mentormate-client.vercel.app/login?error=invalid_state")
+        return redirect("https://mentormate.co.za/login?error=invalid_state")
     
     try:
         # Get authorization code from URL
@@ -900,70 +900,14 @@ def handle_google_callback(google, users_collection, initialize_new_user_dashboa
         session.modified = True
         session.permanent = True
         
-        # Create HTML response with JavaScript redirect
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <title>Signing in...</title>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                    margin: 0;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                }}
-                .loader {{
-                    text-align: center;
-                    color: white;
-                }}
-                .spinner {{
-                    border: 4px solid rgba(255, 255, 255, 0.3);
-                    border-radius: 50%;
-                    border-top: 4px solid white;
-                    width: 40px;
-                    height: 40px;
-                    animation: spin 1s linear infinite;
-                    margin: 0 auto 20px;
-                }}
-                @keyframes spin {{
-                    0% {{ transform: rotate(0deg); }}
-                    100% {{ transform: rotate(360deg); }}
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="loader">
-                <div class="spinner"></div>
-                <p>Signing in with Google...</p>
-            </div>
-            <script>
-                // CRITICAL: Store session token in localStorage as fallback
-                // This helps when cookies are blocked by browser privacy settings
-                try {{
-                    localStorage.setItem('mentormate_session_token', '{session_token}');
-                    localStorage.setItem('mentormate_session_email', '{db_user["email"]}');
-                    console.log('✓ Session token stored in localStorage as fallback');
-                }} catch (e) {{
-                    console.warn('localStorage not available:', e);
-                }}
-                
-                // Increased delay to 500ms to ensure cookie is committed to browser storage
-                // 100ms was too short for Chrome to process Set-Cookie headers
-                setTimeout(function() {{
-                    window.location.href = '{final_redirect}';
-                }}, 500);
-            </script>
-        </body>
-        </html>
-        """
-        
-        response = make_response(html_content, 200)
-        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        # CRITICAL FIX: Use HTTP 302 redirect instead of HTML/JavaScript redirect
+        # JavaScript redirect breaks cookie flow in cross-origin scenarios because:
+        # 1. HTML page loads at api.mentormate.co.za
+        # 2. JavaScript redirects to vercel.app
+        # 3. Browser treats this as new navigation, not redirect chain
+        # 4. Cookies don't get sent in subsequent requests (third-party context)
+        # Solution: Use HTTP 302 redirect like Microsoft OAuth does
+        response = redirect(final_redirect)
         
         # Force session save with proper cookie attributes
         current_app.session_interface.save_session(current_app, session, response)
