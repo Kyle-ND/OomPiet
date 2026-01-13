@@ -489,7 +489,12 @@ def login():
         state_b64 = base64.urlsafe_b64encode(state_json.encode()).decode()
         
         # Sign state with secret key to prevent tampering
-        secret_key_bytes = app.secret_key if isinstance(app.secret_key, bytes) else app.secret_key.encode()
+        if isinstance(app.secret_key, bytes):
+            secret_key_bytes = app.secret_key
+        elif isinstance(app.secret_key, str):
+            secret_key_bytes = app.secret_key.encode()
+        else:
+            secret_key_bytes = str(app.secret_key).encode() if app.secret_key else b'default-secret'
         signature = hmac.new(
             secret_key_bytes,
             state_b64.encode(),
@@ -597,7 +602,12 @@ def microsoft_login():
         state_json = json.dumps(state_data)
         state_b64 = base64.urlsafe_b64encode(state_json.encode()).decode()
         
-        secret_key_bytes = app.secret_key if isinstance(app.secret_key, bytes) else app.secret_key.encode()
+        if isinstance(app.secret_key, bytes):
+            secret_key_bytes = app.secret_key
+        elif isinstance(app.secret_key, str):
+            secret_key_bytes = app.secret_key.encode()
+        else:
+            secret_key_bytes = str(app.secret_key).encode() if app.secret_key else b'default-secret'
         signature = hmac.new(
             secret_key_bytes,
             state_b64.encode(),
