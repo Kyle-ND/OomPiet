@@ -495,7 +495,11 @@ def login():
     # Combine state and signature
     signed_state = f"{state_b64}.{signature}"
    
-    redirect_uri = url_for('google_callback', _external=True)
+    # Construct redirect_uri explicitly based on MODE
+    if MODE == 'development':
+        redirect_uri = "http://localhost:5000/google/callback"
+    else:
+        redirect_uri = "https://www.mentormate.co.za/google/callback"
     
     # Pass signed state to OAuth provider
     # We override Authlib's state management completely
@@ -582,7 +586,12 @@ def microsoft_login():
     
     signed_state = f"{state_b64}.{signature}"
     
-    redirect_uri = url_for('microsoft_callback', _external=True)
+    # Construct redirect_uri explicitly based on MODE
+    if MODE == 'development':
+        redirect_uri = "http://localhost:5000/microsoft/callback"
+    else:
+        redirect_uri = "https://www.mentormate.co.za/microsoft/callback"
+    
     response = microsoft.authorize_redirect(redirect_uri=redirect_uri, state=signed_state)
     
     session.modified = True
