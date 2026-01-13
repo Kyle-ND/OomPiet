@@ -471,9 +471,9 @@ def login():
         session.clear()
 
         if MODE == 'development':
-            redirect_url = "http://localhost:3000/google-callback"
+            redirect_url = "http://localhost:3000/auth/google/callback"
         else:
-            redirect_url = "https://mentormate.co.za/google-callback"
+            redirect_url = "https://mentormate.co.za/auth/google/callback"
 
         # Create stateless state parameter (doesn't rely on session/cookies)
         # This works even when browsers block cookies during OAuth redirect
