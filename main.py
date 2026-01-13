@@ -373,11 +373,19 @@ def verify_session_token():
         # SECURITY: Using JSON instead of pickle to prevent arbitrary code execution
         # JSON is safe and only supports basic data types (str, int, bool, list, dict)
         try:
-            session_data = json.loads(found_session['val'])
-        except (json.JSONDecodeError, TypeError):
+            raw_val = found_session['val']
+            # Ensure JSON deserialization always receives text, not raw bytes
+            if isinstance(raw_val, bytes):
+                raw_val = raw_val.decode('utf-8')
+            session_data = json.loads(raw_val)
+        except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
             # Fallback to pickle for legacy sessions (will be phased out)
             app.logger.warning(f"Legacy pickle session detected: {session_token[:20]}")
-            session_data = pickle.loads(found_session['val'])
+            legacy_val = found_session['val']
+            # Ensure pickle deserialization receives bytes
+            if isinstance(legacy_val, str):
+                legacy_val = legacy_val.encode('utf-8')
+            session_data = pickle.loads(legacy_val)
         
         if 'user' not in session_data:
             app.logger.warning(f"Session has no user data: {session_token[:20]}")
@@ -837,8 +845,12 @@ def get_specific_session(user_id, conversation_id):
     # SECURITY: Verify user_id matches authenticated user
     auth_user = session.get('user', {})
     auth_user_id = auth_user.get('id') or auth_user.get('email')
-    
-    if user_id != auth_user_id:
+
+    # Normalize IDs to prevent case-sensitivity bypass (e.g., with email addresses)
+    normalized_user_id = (str(user_id).strip().lower()) if user_id is not None else None
+    normalized_auth_user_id = (str(auth_user_id).strip().lower()) if auth_user_id is not None else None
+
+    if not normalized_auth_user_id or normalized_user_id != normalized_auth_user_id:
         return jsonify({"error": "Unauthorized: Cannot access other users' sessions"}), 403
     
     try:
@@ -900,11 +912,14 @@ def get_specific_session(user_id, conversation_id):
 @app.route("/chat_history/<user_id>/delete", methods=["DELETE"])
 @login_required
 def delete_chat_history(user_id):
-    # SECURITY: Verify user_id matches authenticated user
+    # SECURITY: Verify user_id matches authenticated user (normalize to prevent case-based bypass)
     auth_user = session.get('user', {})
     auth_user_id = auth_user.get('id') or auth_user.get('email')
     
-    if user_id != auth_user_id:
+    normalized_path_user_id = str(user_id).strip().lower()
+    normalized_auth_user_id = str(auth_user_id).strip().lower() if auth_user_id is not None else None
+    
+    if normalized_auth_user_id is None or normalized_path_user_id != normalized_auth_user_id:
         return jsonify({"error": "Unauthorized: Cannot delete other users' chat history"}), 403
     
     try:
