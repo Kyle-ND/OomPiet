@@ -448,62 +448,83 @@ def reset_password():
 @app.route('/login/google')
 def login():
     """Google OAuth login - VERIFIED for cross-site cookies"""
-    # Get old session ID BEFORE clearing
-    old_cookie = request.cookies.get(app.config['SESSION_COOKIE_NAME'], '')
-    old_sid = old_cookie.split('.')[0] if old_cookie else None
-    
-    # Delete old sessions from MongoDB
-    if old_sid:
-        try:
-            session_collection = client['geotech_db']['flask_sessions']
-            existing = session_collection.find_one({"id": old_sid})
-            if existing:
-                session_collection.delete_one({"id": old_sid})
-                app.logger.info(f"Deleted old session: {old_sid[:20]}...")
-        except Exception as e:
-            app.logger.warning(f"Could not delete old session: {e}")
-    
-    # Clear session (generates new ID)
-    session.clear()
+    try:
+        app.logger.info(f"🔐 Google OAuth login initiated - MODE={MODE}")
+        app.logger.info(f"📧 Google Client ID: {GOOGLE_CLIENT_ID[:30] if GOOGLE_CLIENT_ID else 'NOT SET'}...")
+        
+        # Get old session ID BEFORE clearing
+        old_cookie = request.cookies.get(app.config['SESSION_COOKIE_NAME'], '')
+        old_sid = old_cookie.split('.')[0] if old_cookie else None
+        
+        # Delete old sessions from MongoDB
+        if old_sid:
+            try:
+                session_collection = client['geotech_db']['flask_sessions']
+                existing = session_collection.find_one({"id": old_sid})
+                if existing:
+                    session_collection.delete_one({"id": old_sid})
+                    app.logger.info(f"Deleted old session: {old_sid[:20]}...")
+            except Exception as e:
+                app.logger.warning(f"Could not delete old session: {e}")
+        
+        # Clear session (generates new ID)
+        session.clear()
 
-    if MODE == 'development':
-        redirect_url = "http://localhost:3000/google-callback"
-    else:
-        redirect_url = "https://mentormate.co.za/google-callback"
+        if MODE == 'development':
+            redirect_url = "http://localhost:3000/auth/google/callback"
+        else:
+            redirect_url = "https://mentormate.co.za/auth/google/callback"
 
-    # Create stateless state parameter (doesn't rely on session/cookies)
-    # This works even when browsers block cookies during OAuth redirect
-    state_data = {
-        'redirect_url': redirect_url,
-        'provider': 'google',
-        'timestamp': datetime.datetime.now(timezone.utc).isoformat(),
-        'nonce': secrets.token_urlsafe(16)
-    }
-    
-    # Encode and sign state to prevent tampering
-    state_json = json.dumps(state_data)
-    state_b64 = base64.urlsafe_b64encode(state_json.encode()).decode()
-    
-    # Sign state with secret key to prevent tampering
-    secret_key_bytes = app.secret_key if isinstance(app.secret_key, bytes) else app.secret_key.encode()
-    signature = hmac.new(
-        secret_key_bytes,
-        state_b64.encode(),
-        hashlib.sha256
-    ).hexdigest()[:16]  # Use first 16 chars
-    
-    # Combine state and signature
-    signed_state = f"{state_b64}.{signature}"
-   
-    # Construct redirect_uri explicitly based on MODE
-    if MODE == 'development':
-        redirect_uri = "http://localhost:5000/google/callback"
-    else:
-        redirect_uri = "https://www.mentormate.co.za/google/callback"
-    
-    # Pass signed state to OAuth provider
-    # We override Authlib's state management completely
-    response = google.authorize_redirect(redirect_uri=redirect_uri, state=signed_state)
+        # Create stateless state parameter (doesn't rely on session/cookies)
+        # This works even when browsers block cookies during OAuth redirect
+        state_data = {
+            'redirect_url': redirect_url,
+            'provider': 'google',
+            'timestamp': datetime.datetime.now(timezone.utc).isoformat(),
+            'nonce': secrets.token_urlsafe(16)
+        }
+        
+        # Encode and sign state to prevent tampering
+        state_json = json.dumps(state_data)
+        state_b64 = base64.urlsafe_b64encode(state_json.encode()).decode()
+        
+        # Sign state with secret key to prevent tampering
+        if isinstance(app.secret_key, bytes):
+            secret_key_bytes = app.secret_key
+        elif isinstance(app.secret_key, str):
+            secret_key_bytes = app.secret_key.encode()
+        else:
+            secret_key_bytes = str(app.secret_key).encode() if app.secret_key else b'default-secret'
+        signature = hmac.new(
+            secret_key_bytes,
+            state_b64.encode(),
+            hashlib.sha256
+        ).hexdigest()[:16]  # Use first 16 chars
+        
+        # Combine state and signature
+        signed_state = f"{state_b64}.{signature}"
+       
+        # Construct redirect_uri explicitly based on MODE
+        if MODE == 'development':
+            redirect_uri = "http://localhost:5000/google/callback"
+        else:
+            redirect_uri = "https://api.mentormate.co.za/google/callback"
+        
+        app.logger.info(f"🔗 Redirect URI: {redirect_uri}")
+        
+        # Pass signed state to OAuth provider
+        # We override Authlib's state management completely
+        response = google.authorize_redirect(redirect_uri=redirect_uri, state=signed_state)
+        app.logger.info(f"✅ OAuth redirect created successfully")
+        
+    except Exception as e:
+        app.logger.error(f"❌ Google OAuth Error: {str(e)}")
+        app.logger.error(f"❌ Traceback: {traceback.format_exc()}")
+        return jsonify({
+            "error": "Google OAuth initialization failed",
+            "details": str(e),
+            "message": "Please contact support or check server logs"
+        }), 500
     
     # Force session save
     session.modified = True
@@ -545,54 +566,75 @@ def login():
 @app.route('/login/microsoft')
 def microsoft_login():
     """Microsoft OAuth login - VERIFIED for cross-site cookies"""
-    # Same pattern as Google login above
-    old_cookie = request.cookies.get(app.config['SESSION_COOKIE_NAME'], '')
-    old_sid = old_cookie.split('.')[0] if old_cookie else None
-    
-    if old_sid:
-        try:
-            session_collection = client['geotech_db']['flask_sessions']
-            existing = session_collection.find_one({"id": old_sid})
-            if existing:
-                session_collection.delete_one({"id": old_sid})
-                app.logger.info(f"Deleted old session: {old_sid[:20]}...")
-        except Exception as e:
-            app.logger.warning(f"Could not delete old session: {e}")
-    
-    session.clear()
-    if MODE == 'development':
-        redirect_url = "http://localhost:3000/microsoft-callback"
-    else:
-        redirect_url = "https://mentormate.co.za/microsoft-callback"
+    try:
+        app.logger.info(f"🔐 Microsoft OAuth login initiated - MODE={MODE}")
+        app.logger.info(f"📧 Microsoft Client ID: {MICROSOFT_CLIENT_ID[:30] if MICROSOFT_CLIENT_ID else 'NOT SET'}...")
+        
+        # Same pattern as Google login above
+        old_cookie = request.cookies.get(app.config['SESSION_COOKIE_NAME'], '')
+        old_sid = old_cookie.split('.')[0] if old_cookie else None
+        
+        if old_sid:
+            try:
+                session_collection = client['geotech_db']['flask_sessions']
+                existing = session_collection.find_one({"id": old_sid})
+                if existing:
+                    session_collection.delete_one({"id": old_sid})
+                    app.logger.info(f"Deleted old session: {old_sid[:20]}...")
+            except Exception as e:
+                app.logger.warning(f"Could not delete old session: {e}")
+        
+        session.clear()
+        if MODE == 'development':
+            redirect_url = "http://localhost:3000/microsoft-callback"
+        else:
+            redirect_url = "https://mentormate.co.za/microsoft-callback"
 
-    # Create stateless state parameter (doesn't rely on session/cookies)
-    state_data = {
-        'redirect_url': redirect_url,
-        'provider': 'microsoft',
-        'timestamp': datetime.datetime.now(timezone.utc).isoformat(),
-        'nonce': secrets.token_urlsafe(16)
-    }
-    
-    # Encode and sign state
-    state_json = json.dumps(state_data)
-    state_b64 = base64.urlsafe_b64encode(state_json.encode()).decode()
-    
-    secret_key_bytes = app.secret_key if isinstance(app.secret_key, bytes) else app.secret_key.encode()
-    signature = hmac.new(
-        secret_key_bytes,
-        state_b64.encode(),
-        hashlib.sha256
-    ).hexdigest()[:16]
-    
-    signed_state = f"{state_b64}.{signature}"
-    
-    # Construct redirect_uri explicitly based on MODE
-    if MODE == 'development':
-        redirect_uri = "http://localhost:5000/microsoft/callback"
-    else:
-        redirect_uri = "https://www.mentormate.co.za/microsoft/callback"
-    
-    response = microsoft.authorize_redirect(redirect_uri=redirect_uri, state=signed_state)
+        # Create stateless state parameter (doesn't rely on session/cookies)
+        state_data = {
+            'redirect_url': redirect_url,
+            'provider': 'microsoft',
+            'timestamp': datetime.datetime.now(timezone.utc).isoformat(),
+            'nonce': secrets.token_urlsafe(16)
+        }
+        
+        # Encode and sign state
+        state_json = json.dumps(state_data)
+        state_b64 = base64.urlsafe_b64encode(state_json.encode()).decode()
+        
+        if isinstance(app.secret_key, bytes):
+            secret_key_bytes = app.secret_key
+        elif isinstance(app.secret_key, str):
+            secret_key_bytes = app.secret_key.encode()
+        else:
+            secret_key_bytes = str(app.secret_key).encode() if app.secret_key else b'default-secret'
+        signature = hmac.new(
+            secret_key_bytes,
+            state_b64.encode(),
+            hashlib.sha256
+        ).hexdigest()[:16]
+        
+        signed_state = f"{state_b64}.{signature}"
+        
+        # Construct redirect_uri explicitly based on MODE
+        if MODE == 'development':
+            redirect_uri = "http://localhost:5000/microsoft/callback"
+        else:
+            redirect_uri = "https://api.mentormate.co.za/microsoft/callback"
+        
+        app.logger.info(f"🔗 Redirect URI: {redirect_uri}")
+        
+        response = microsoft.authorize_redirect(redirect_uri=redirect_uri, state=signed_state)
+        app.logger.info(f"✅ OAuth redirect created successfully")
+        
+    except Exception as e:
+        app.logger.error(f"❌ Microsoft OAuth Error: {str(e)}")
+        app.logger.error(f"❌ Traceback: {traceback.format_exc()}")
+        return jsonify({
+            "error": "Microsoft OAuth initialization failed",
+            "details": str(e),
+            "message": "Please contact support or check server logs"
+        }), 500
     
     session.modified = True
     try:
