@@ -5,3 +5,8 @@ __pycache__/
 venv/
 .venv/
 microsoft_login.py
+.git/
+.vscode/
+.zencoder/
+.zenflow/
+flask_session/

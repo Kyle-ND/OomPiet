@@ -133,7 +133,7 @@ collection = db["rag_queries"]
 
 
 
-# Initialize OAuth
+# Iinitialize OAuth
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
