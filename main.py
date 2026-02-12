@@ -21,7 +21,7 @@ import secrets
 import hmac
 import hashlib
 from werkzeug.middleware.proxy_fix import ProxyFix
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash,check_password_hash
 import json
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -132,6 +132,19 @@ sessions_collection = db["sessions"]
 password_reset_collection = db["password_reset_tokens"]
 collection = db["rag_queries"]
 
+
+UPLOAD_USERS = [
+    {
+        'email': 'david@intailings.com',
+        'password_hash': generate_password_hash('1234david'),
+        'name': 'User One',
+    },
+    {
+        'email': 'finely@intailings.com',
+        'password_hash': generate_password_hash('1234david'),
+        'name': 'User Two',
+    },
+]
 
 
 # Initialize OAuth
@@ -338,6 +351,27 @@ def check_session():
     }
     
     return jsonify(response_data), 200
+
+@app.route('/upload-login', methods=['POST'])
+def upload_login():
+    data = request.get_json()
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '')
+    
+    # Only allow the two hardcoded users
+    user = next((u for u in UPLOAD_USERS if u['email'] == email), None)
+    if not user or not check_password_hash(user['password_hash'], password):
+        return jsonify({'success': False, 'error': 'Invalid email or password'}), 401
+    
+    # Set session for upload page
+    session.permanent = True
+    session['user'] = {
+        'email': user['email'],
+        'name': user['name'],
+        'auth_method': 'upload_modal',
+    }
+    session['upload_access'] = True
+    return jsonify({'success': True, 'user': session['user']})
 
 
 @app.route('/api/verify-session-token', methods=['POST'])
