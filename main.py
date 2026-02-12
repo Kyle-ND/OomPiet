@@ -79,6 +79,7 @@ CORS(
         "https://mentormate-client.vercel.app",
         "https://mentormate.co.za",
         "https://www.mentormate.co.za",
+        "https://www.mentormate.co.za/upload",
         BACKEND_SUBDOMAIN,
         "http://localhost:3000"
     ],
