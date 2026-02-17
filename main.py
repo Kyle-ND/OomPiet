@@ -178,7 +178,8 @@ ALLOWED_QDRANT_COLLECTIONS = [
     "Tailings_engineer_docs", 
     "Water_docs",
     "Mining_docs",
-    "Electrical_docs"
+    "Electrical_docs",
+    "Pavement_docs"
 ]
 
 class JSONEncoder(json.JSONEncoder):
