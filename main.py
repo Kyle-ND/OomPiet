@@ -192,7 +192,8 @@ ALLOWED_QDRANT_COLLECTIONS = [
     "Tailings_engineer_docs", 
     "Water_docs",
     "Mining_docs",
-    "Electrical_docs"
+    "Electrical_docs",
+    "Pavement_docs"
 ]
 
 class JSONEncoder(json.JSONEncoder):
@@ -1148,7 +1149,7 @@ def proxy_rag():
             app.logger.exception("Error saving user message to rag_queries")
 
         try:
-            resp = requests.post(rag_url, json=forward_payload, timeout=30)
+            resp = requests.post(rag_url, json=forward_payload, timeout=90)
             resp.raise_for_status()
             resp_json = resp.json()
         except requests.exceptions.HTTPError as http_err:
@@ -1159,6 +1160,10 @@ def proxy_rag():
             # If forwarding failed, log and return error; user message is already persisted
             app.logger.exception("Error forwarding to RAG service")
             resp_json = {"error": str(exc)}
+        except requests.exceptions.ReadTimeout:
+            return jsonify({
+             "error": "The response is taking longer than expected. Please try rephrasing your question or asking something more specific."
+            }), 504
 
         # Persist the assistant reply if available
         try:
