@@ -193,7 +193,7 @@ def send_contact_email(
     SMTP_USERNAME = os.getenv('SMTP_USERNAME')
     SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
     SMTP_FROM = os.getenv('SMTP_FROM', SMTP_USERNAME)
-    COMPANY_EMAIL = os.getenv('COMPANY_EMAIL', 'mentormatecoza@gmail.com')
+    COMPANY_EMAIL = 'mentormatecoza@gmail.com'
     
     # Use provided recipient email or default to company email
     recipient_email = recipient_email or COMPANY_EMAIL
