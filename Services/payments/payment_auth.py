@@ -81,7 +81,6 @@ def payment_op():
     'payfast_form.html',
     payfast=payfast_data,
     recurring=recurring,
-    is_sandbox=os.getenv('PAYFAST_SANDBOX', 'true').lower() == 'true'
 )
 
 def payment_successful(users_collection):
@@ -148,9 +147,7 @@ def payment_notification(users_collection, PAYFAST_SANDBOX, PAYFAST_PASSPHRASE):
 
     # Server-to-server ITN validation with PayFast 
     validation_url = (
-        "https://sandbox.payfast.co.za/eng/query/validate"
-        if PAYFAST_SANDBOX
-        else "https://www.payfast.co.za/eng/query/validate"
+         "https://www.payfast.co.za/eng/query/validate"
     )
 
     try:
