@@ -66,7 +66,7 @@ GRAPH_ME_URL = "https://graph.microsoft.com/v1.0/me"
 # PayFast Configuration
 PAYFAST_MERCHANT_ID = os.getenv('PAYFAST_MERCHANT_ID')
 PAYFAST_MERCHANT_KEY = os.getenv('PAYFAST_MERCHANT_KEY')
-PAYFAST_PASSPHRASE = os.getenv('PAYFAST_PASSPHRASE', '')
+PAYFAST_PASSPHRASE =  'ty9pA1mkQ5Zm'
 PAYFAST_SANDBOX = os.getenv('PAYFAST_SANDBOX', 'true').lower() == 'true'
 
 app = Flask(__name__, static_folder='static')
