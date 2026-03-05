@@ -2,6 +2,8 @@ env/
 __pycache__/
 *.pyc
 .env
+.env.local
 venv/
 .venv/
 microsoft_login.py
+.vercel

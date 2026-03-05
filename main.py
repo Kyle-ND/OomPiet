@@ -35,6 +35,8 @@ import sys
 import logging
 from Services.auth import user_auth as UserAuth
 from Services.payments import payment_auth as PayAuth
+from Services.payments import payment_utils as PayUtils   # free-tier quota helpers
+
 # Email Utils
 from Utils.EmailSender import send_contact_email
 
@@ -132,7 +134,6 @@ sessions_collection = db["sessions"]
 password_reset_collection = db["password_reset_tokens"]
 collection = db["rag_queries"]
 
-
 UPLOAD_USERS = [
     {
         'email': 'david@intailings.com',
@@ -147,7 +148,7 @@ UPLOAD_USERS = [
 ]
 
 
-# Initialize OAuth
+# Iinitialize OAuth
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
@@ -373,6 +374,7 @@ def upload_login():
     }
     session['upload_access'] = True
     return jsonify({'success': True, 'user': session['user']})
+
 
 
 @app.route('/api/verify-session-token', methods=['POST'])
@@ -738,8 +740,9 @@ def check_upload_access():
         return jsonify({'uploadAccess': True})
     return jsonify({'uploadAccess': False})
 
+
+  # Support both endpoints for frontend compatibility
 @app.route('/logout', methods=['POST', 'GET'])
-@app.route('/signout', methods=['POST', 'GET'])  # Support both endpoints for frontend compatibility
 def logout():
     user_email = session.get('user', {}).get('email')
     if user_email:
@@ -803,14 +806,18 @@ def pay_success():
 @app.route('/pay/cancel')
 @login_required
 def pay_cancel():
-    # Redirect to React frontend with cancellation message
-    return redirect("https://mentormate.co.za/payment-cancelled")
+    response = jsonify({
+        "status": "cancelled",
+        "message": "Your payment was cancelled. No charge was made."
+    })
+    response.headers['Refresh'] = '3; url=https://mentormate.co.za/mentormate-homepage'
+    return response, 200
 
 @app.route('/pay/notify', methods=['POST'])
 def pay_notify():
     return PayAuth.payment_notification(users_collection, PAYFAST_SANDBOX, PAYFAST_PASSPHRASE)
 
-@app.route('/unsubscribe', methods=['POST'])
+@app.route('/api/unsubscribe', methods=['POST'])
 @login_required
 def unsubscribe():
     return UserAuth.handle_unsubscription(users_collection, PAYFAST_SANDBOX)
@@ -1121,12 +1128,36 @@ def proxy_rag():
                     conversation_id = f"conv_{user_id}_{collection_name}_{uuid.uuid4().hex[:8]}"
                     is_new = True
 
+        auth_user = session.get('user', {})
+        email = (auth_user.get('email') or 'unknown').strip().lower()
+
+        limit = PayUtils.get_limit_status(users_collection, email)
+        if not limit.get('can_query', False):
+            return jsonify({
+                "error": "free_tier_exhuated",
+                "message": limit.get('reason', 'Free message limit reached.'),
+                "limit": {
+                    "free_messages_used": limit.get('free_messages_used', 0),
+                    "free_messages_remaining": 0,
+                    "limit": limit.get('limit', 5),
+                    "limit_resets_at": (
+                        limit['limit_resets_at'].isoformat()
+                        if limit.get('limit_resets_at') else None 
+        
+                    ),
+                    "is_premium": False,
+                },
+                "upgrade_url": url_for('pay', _external=True)
+            }), 402
+        
         # Basic validation
         if not query_text:
             return jsonify({"error": "query is required"}), 400
+        
+
 
         # Forward to external RAG service (configurable via RAG_SERVICE_URL)
-        rag_url = os.getenv('RAG_SERVICE_URL') or 'https://oompiet.space/rag'
+        rag_url = os.getenv('RAG_SERVICE_URL') or 'http://127.0.0.1:8000/rag'
         forward_payload = data.copy()
         forward_payload['conversation_id'] = conversation_id
         forward_payload['user_id'] = user_id
@@ -1149,7 +1180,7 @@ def proxy_rag():
             app.logger.exception("Error saving user message to rag_queries")
 
         try:
-            resp = requests.post(rag_url, json=forward_payload, timeout=90)
+            resp = requests.post(rag_url, json=forward_payload, timeout=80)
             resp.raise_for_status()
             resp_json = resp.json()
         except requests.exceptions.HTTPError as http_err:
@@ -1160,10 +1191,6 @@ def proxy_rag():
             # If forwarding failed, log and return error; user message is already persisted
             app.logger.exception("Error forwarding to RAG service")
             resp_json = {"error": str(exc)}
-        except requests.exceptions.ReadTimeout:
-            return jsonify({
-             "error": "The response is taking longer than expected. Please try rephrasing your question or asking something more specific."
-            }), 504
 
         # Persist the assistant reply if available
         try:
@@ -1185,6 +1212,17 @@ def proxy_rag():
         # Ensure the response contains the conversation id so client can continue
         if isinstance(resp_json, dict):
             resp_json['conversation_id'] = conversation_id
+
+        
+        if not limit.get('is_premium', False):
+            updated_limit = PayUtils.consume_free_message(users_collection, email)
+            resp_json['limit'] = {
+                "free_messages_remaining": updated_limit.get('free_messages_remaining', 0),
+                "limit": updated_limit.get('limit', 5),
+                "is_premium": updated_limit.get('is_premium', False),
+            }
+        else:
+            resp_json['quota'] = {"is_premium": True}
 
         status_code = 200 if isinstance(resp_json, dict) and not resp_json.get('error') else 500
         return jsonify(resp_json), status_code
@@ -1397,6 +1435,14 @@ def shared_conversation(conversation_id):
         app.logger.error(f"Error fetching shared conversation: {str(e)}")
         return jsonify({"error": "Failed to fetch conversation"}), 500
 
+@app.route('/api/limit', methods=['GET'])
+@login_required
+def get_user_limit():
+    """Return the current free-tier limit status for the logged-in user."""
+    auth_user = session.get('user', {})
+    email = auth_user.get('email', '')
+    status = PayUtils.get_limit_status(users_collection, email)
+    return jsonify(status), 200
 
 # ==================== CONTACT EMAIL ENDPOINT ====================
 @app.route('/api/send-contact-email', methods=['POST'])
@@ -1493,4 +1539,5 @@ def contact_email_endpoint():
 if __name__ == '__main__':
     # Create static folder if it doesn't exist
     app.run(host='0.0.0.0', port=5000)
+
 

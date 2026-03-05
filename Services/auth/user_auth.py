@@ -1008,17 +1008,74 @@ def handle_unsubscription(users_collection, PAYFAST_SANDBOX):
         cancel_url = 'https://sandbox.payfast.co.za/eng/query/subscription/cancel'
     else:
         cancel_url = 'https://www.payfast.co.za/eng/query/subscription/cancel'
-    
+
+    merchant_id = os.getenv('PAYFAST_MERCHANT_ID')
+    merchant_key = os.getenv('PAYFAST_MERCHANT_KEY')
+
     payload = {
-          'merchant_id': '25296103',
-        'merchant_key': 'rbn0vhdzshrbi',
-        'subscription_id': pf_subscription_id
+        'merchant_id': merchant_id,
+        'merchant_key': merchant_key,
+        'subscription_id': pf_subscription_id,
     }
-    response = requests.post(cancel_url, data=payload)
+
+    try:
+        response = requests.post(cancel_url, data=payload, timeout=10)
+    except requests.RequestException as exc:
+        current_app.logger.error(
+            f"Error calling PayFast subscription cancel API for {pf_subscription_id}: {exc}"
+        )
+        # Stop service locally anyway but warn the user about billing
+        users_collection.update_one(
+            {'email': user['email']},
+            {'$unset': {'payfast_subscription_id': ""}}
+        )
+        users_collection.update_one(
+            {'email': user['email']},
+            {'$set': {'premium': False}}
+        )
+        return jsonify({
+            'success': True,
+            'message': (
+                'Your Paid Plan access has been cancelled locally. '
+                'We could not confirm cancellation with PayFast, '
+                'so please check your PayFast / bank account to ensure billing has stopped.'
+            ),
+        })
+
     if response.status_code == 200 and 'true' in response.text.lower():
-        users_collection.update_one({'email': user['email']}, {'$unset': {'payfast_subscription_id': ""}})
-        users_collection.update_one({'email': user['email']}, {'$set': {'premium': False}})
-        return jsonify({'success': True})
+        current_app.logger.info(
+            f"PayFast subscription {pf_subscription_id} cancelled successfully."
+        )
+        users_collection.update_one(
+            {'email': user['email']},
+            {'$unset': {'payfast_subscription_id': ""}}
+        )
+        users_collection.update_one(
+            {'email': user['email']},
+            {'$set': {'premium': False}}
+        )
+        return jsonify({
+            'success': True,
+            'message': 'Your subscription has been cancelled and Paid Plan access removed.',
+        })
     else:
-        return jsonify({'success': False, 'error': 'Failed to cancel subscription'}), 500
-    
+        current_app.logger.warning(
+            f"PayFast subscription cancel rejected for {pf_subscription_id}: "
+            f"status={response.status_code}, body={response.text!r}"
+        )
+        # PayFast rejected (e.g. test/fake subscription ID) — cancel locally anyway
+        users_collection.update_one(
+            {'email': user['email']},
+            {'$unset': {'payfast_subscription_id': ""}}
+        )
+        users_collection.update_one(
+            {'email': user['email']},
+            {'$set': {'premium': False}}
+        )
+        return jsonify({
+            'success': True,
+            'message': (
+                'Your Paid Plan access has been cancelled locally, but we could not confirm '
+                'cancellation with PayFast. Please double‑check your PayFast / bank account.'
+            ),
+        })
