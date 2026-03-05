@@ -9,8 +9,8 @@ from urllib.parse import quote_plus
 
 from Services.payments.payment_utils import pay_notify_handler
 
-merchant_id = os.getenv('PAYFAST_MERCHANT_ID')
-merchant_key = os.getenv('PAYFAST_MERCHANT_KEY')
+merchant_id = os.getenv('PAYFAST_MERCHANT_ID') or '25296103'
+merchant_key = os.getenv('PAYFAST_MERCHANT_KEY') or 'rbn0vhdzshrbi'
 
 EXPECTED_PLAN_AMOUNTS = {
     "monthly": "149.00",
@@ -57,7 +57,7 @@ def payment_op():
         'email_address': user.get('email', ''),
         'return_url': url_for('pay_success', plan=plan, _external=True),
         'cancel_url': url_for('pay_cancel', _external=True),
-        'notify_url': notify_url,
+        'notify_url': notify_url or 'https://api.mentormate.co.za/pay/notify',
         'custom_str1': user.get('email', ''),
         'custom_str2': plan,
         'custom_str3': merchant_ref,
@@ -93,7 +93,7 @@ def payment_successful(users_collection):
 
 
 
-    frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+    frontend_url = os.getenv('FRONTEND_URL', 'https://www.mentormate.co.za')
     return redirect(f"{frontend_url}/mentormate-homepage")
 
 
