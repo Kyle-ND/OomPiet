@@ -1157,7 +1157,7 @@ def proxy_rag():
 
 
         # Forward to external RAG service (configurable via RAG_SERVICE_URL)
-        rag_url = os.getenv('RAG_SERVICE_URL') or 'http://127.0.0.1:8000/rag'
+        rag_url = os.getenv('RAG_SERVICE_URL') or 'https://oompiet.space/rag'
         forward_payload = data.copy()
         forward_payload['conversation_id'] = conversation_id
         forward_payload['user_id'] = user_id
